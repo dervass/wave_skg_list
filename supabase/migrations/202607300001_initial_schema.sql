@@ -343,7 +343,7 @@ language sql
 security definer
 set search_path = ''
 as $$
-  select count(*) < 5
+  select count(*) < 100
   from public.login_attempts
   where username = lower(p_username)
     and succeeded = false
