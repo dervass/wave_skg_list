@@ -339,7 +339,7 @@ export default function CalculatorPage() {
 
         {/* Tab Content: Projections */}
         {activeTab === "projection" && (
-          <div className="animate-in fade-in py-2">
+          <div className="animate-in fade-in pt-2 pb-[300px]">
             <section>
               <div className="mb-6">
                 <h2 className="text-xl font-bold mb-1">Projections & Break-even</h2>
