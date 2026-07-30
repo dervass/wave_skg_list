@@ -9,10 +9,10 @@ import {
 } from "@/lib/supabase/request";
 
 const createSchema = z.object({
-  username: z.string().trim().min(2).max(50).regex(/^[a-zA-Z0-9._-]+$/),
-  displayName: z.string().trim().min(2).max(80),
-  password: z.string().min(8).max(128),
-  role: z.enum(["organizer", "door"]),
+  username: z.string().trim().min(2, "Username must be at least 2 characters").max(50),
+  displayName: z.string().trim().min(2, "Display name must be at least 2 characters").max(80),
+  password: z.string().min(4, "Password must be at least 4 characters").max(128),
+  role: z.enum(["organizer", "door", "admin"]),
 });
 
 export async function GET() {
@@ -34,17 +34,21 @@ export async function GET() {
 export async function POST(request: Request) {
   const context = await getRequestContext(["admin"]);
   if (!context) return unauthorized();
-  const parsed = createSchema.safeParse(await request.json().catch(() => null));
-  if (!parsed.success) return badRequest("Invalid account", parsed.error.flatten());
+  const body = await request.json().catch(() => null);
+  const parsed = createSchema.safeParse(body);
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0]?.message ?? "Invalid account details";
+    return badRequest(issue);
+  }
   const service = createServiceRoleClient();
-  const username = parsed.data.username.toLocaleLowerCase("en");
+  const username = parsed.data.username.trim().toLowerCase().replace(/\s+/g, "_");
   const { data, error } = await service.auth.admin.createUser({
     email: `${username}@auth.wave-skg.internal`,
     password: parsed.data.password,
     email_confirm: true,
     user_metadata: { username },
   });
-  if (error || !data.user) return badRequest(error?.message ?? "Unable to create account");
+  if (error || !data.user) return badRequest(error?.message ?? "Unable to create account in Auth");
   const { error: profileError } = await service.from("profiles").insert({
     id: data.user.id,
     username,
@@ -52,7 +56,10 @@ export async function POST(request: Request) {
     role: parsed.data.role,
     is_active: true,
   });
-  if (profileError) return badRequest(profileError.message);
+  if (profileError) {
+    await service.auth.admin.deleteUser(data.user.id);
+    return badRequest(profileError.message);
+  }
   await service.from("event_assignments").insert({
     event_id: context.event.id,
     user_id: data.user.id,

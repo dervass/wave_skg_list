@@ -6,7 +6,7 @@ import { createServiceRoleClient } from "@/lib/supabase/server";
 import { badRequest } from "@/lib/supabase/request";
 
 const schema = z.object({
-  username: z.string().trim().min(2).max(50).regex(/^[a-zA-Z0-9._-]+$/),
+  username: z.string().trim().min(2).max(50),
   password: z.string().min(4).max(128),
   trusted: z.boolean().default(true),
 });
@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
   const parsed = schema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return badRequest("Check your username and credentials");
 
-  const username = parsed.data.username.toLocaleLowerCase("en");
+  const username = parsed.data.username.trim().toLowerCase().replace(/\s+/g, "_");
   const service = createServiceRoleClient();
   const { data: allowed, error: limitError } = await service.rpc(
     "check_login_rate_limit",
