@@ -1,6 +1,6 @@
 "use client";
 
-import { KeyRound, Plus, Trash2, User, Instagram, Lock, Check } from "lucide-react";
+import { KeyRound, Plus, Trash2, Check } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { PageFrame } from "@/components/page-frame";
@@ -183,52 +183,42 @@ export default function AccountManagementPage() {
               <label className="mb-1.5 block text-xs font-bold text-[var(--muted)] uppercase tracking-wider">
                 Display Name
               </label>
-              <div className="relative">
-                <input
-                  className="field pl-10"
-                  value={myDisplayName}
-                  onChange={(e) => setMyDisplayName(e.target.value)}
-                  placeholder="Your Name"
-                  required
-                />
-                <User className="absolute left-3 top-3.5 text-[var(--muted)]" size={17} />
-              </div>
+              <input
+                className="field"
+                value={myDisplayName}
+                onChange={(e) => setMyDisplayName(e.target.value)}
+                placeholder="Your Name"
+                required
+              />
             </div>
 
             <div>
               <label className="mb-1.5 block text-xs font-bold text-[var(--muted)] uppercase tracking-wider">
                 Instagram (@handle)
               </label>
-              <div className="relative">
-                <input
-                  className="field pl-10"
-                  value={myInstagram}
-                  onChange={(e) => setMyInstagram(e.target.value)}
-                  placeholder="@your_instagram"
-                />
-                <Instagram className="absolute left-3 top-3.5 text-[var(--muted)]" size={17} />
-              </div>
+              <input
+                className="field"
+                value={myInstagram}
+                onChange={(e) => setMyInstagram(e.target.value)}
+                placeholder="@your_instagram"
+              />
             </div>
 
             <div>
               <label className="mb-1.5 block text-xs font-bold text-[var(--muted)] uppercase tracking-wider">
                 Change Password (leave blank to keep current)
               </label>
-              <div className="relative">
-                <input
-                  className="field pl-10"
-                  type="password"
-                  value={myPassword}
-                  onChange={(e) => setMyPassword(e.target.value)}
-                  placeholder="New password (4+ chars)"
-                  minLength={4}
-                />
-                <Lock className="absolute left-3 top-3.5 text-[var(--muted)]" size={17} />
-              </div>
+              <input
+                className="field"
+                type="password"
+                value={myPassword}
+                onChange={(e) => setMyPassword(e.target.value)}
+                placeholder="New password (4+ chars)"
+                minLength={4}
+              />
             </div>
 
             <button className="button-primary mt-2" disabled={savingSelf}>
-              <Check size={18} />
               {savingSelf ? "Saving..." : "Save Settings"}
             </button>
           </form>
