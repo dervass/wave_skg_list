@@ -24,6 +24,7 @@ export interface Profile {
   display_name: string;
   role: AppRole;
   is_active: boolean;
+  password?: string | null;
 }
 
 export interface EventSummary {

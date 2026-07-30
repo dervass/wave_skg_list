@@ -35,16 +35,30 @@ export async function GET() {
     return NextResponse.json({ accounts: [context.profile] });
   }
 
-  const { data, error } = await service
-    .from("event_assignments")
-    .select("profiles(id,username,display_name,role,is_active)")
-    .eq("event_id", context.event.id);
+  const [{ data, error }, { data: authData }] = await Promise.all([
+    service
+      .from("event_assignments")
+      .select("profiles(id,username,display_name,role,is_active)")
+      .eq("event_id", context.event.id),
+    service.auth.admin.listUsers({ perPage: 1000 }),
+  ]);
+
   if (error) return badRequest(error.message);
-  return NextResponse.json({
-    accounts: (data ?? []).flatMap((row) =>
-      Array.isArray(row.profiles) ? row.profiles : row.profiles ? [row.profiles] : [],
-    ),
-  });
+
+  const metaMap = new Map(
+    (authData?.users ?? []).map((u) => [u.id, u.user_metadata]),
+  );
+
+  const rawAccounts = (data ?? []).flatMap((row) =>
+    Array.isArray(row.profiles) ? row.profiles : row.profiles ? [row.profiles] : [],
+  );
+
+  const accounts = rawAccounts.map((acc) => ({
+    ...acc,
+    password: metaMap.get(acc.id)?.visible_password ?? null,
+  }));
+
+  return NextResponse.json({ accounts });
 }
 
 export async function POST(request: Request) {
@@ -79,7 +93,8 @@ export async function POST(request: Request) {
     email_confirm: true,
     user_metadata: { 
       username,
-      instagram: parsed.data.instagram?.replace(/^@/, "") ?? null 
+      instagram: parsed.data.instagram?.replace(/^@/, "") ?? null,
+      visible_password: parsed.data.password,
     },
   });
   if (error || !data.user) return badRequest(error?.message ?? "Unable to create user account");
@@ -131,18 +146,27 @@ export async function PATCH(request: Request) {
       .eq("id", parsed.data.userId);
   }
 
-  if (parsed.data.newPassword) {
-    const { error } = await service.auth.admin.updateUserById(parsed.data.userId, {
-      password: parsed.data.newPassword,
-    });
-    if (error) return badRequest(error.message);
-  }
+  if (parsed.data.newPassword || parsed.data.instagram !== undefined) {
+    const { data: userData } = await service.auth.admin.getUserById(parsed.data.userId);
+    const existingMeta = userData?.user?.user_metadata ?? {};
+    
+    const newMeta = { ...existingMeta };
+    if (parsed.data.instagram !== undefined) {
+      newMeta.instagram = parsed.data.instagram?.replace(/^@/, "").trim() || null;
+    }
+    if (parsed.data.newPassword) {
+      newMeta.visible_password = parsed.data.newPassword;
+    }
 
-  if (parsed.data.instagram !== undefined) {
-    const cleanIg = parsed.data.instagram?.replace(/^@/, "").trim() || null;
-    await service.auth.admin.updateUserById(parsed.data.userId, {
-      user_metadata: { instagram: cleanIg }
-    });
+    const updatePayload: { password?: string; user_metadata: Record<string, unknown> } = {
+      user_metadata: newMeta,
+    };
+    if (parsed.data.newPassword) {
+      updatePayload.password = parsed.data.newPassword;
+    }
+
+    const { error } = await service.auth.admin.updateUserById(parsed.data.userId, updatePayload);
+    if (error) return badRequest(error.message);
   }
 
   return NextResponse.json({ ok: true });

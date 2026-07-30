@@ -254,9 +254,16 @@ export default function AccountManagementPage() {
                 <article className="flex min-h-20 items-center gap-3 py-3" key={account.id}>
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-black">{account.display_name}</p>
-                    <p className="text-xs text-[var(--muted)]">
-                      @{account.username} · <span className="capitalize">{account.role}</span>
-                    </p>
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--muted)] mt-0.5">
+                      <span>@{account.username}</span>
+                      <span>·</span>
+                      <span className="capitalize">{account.role}</span>
+                      {account.password ? (
+                        <span className="rounded bg-white/10 px-2 py-0.5 font-mono text-[11px] font-semibold text-[var(--accent)]">
+                          Pass: {account.password}
+                        </span>
+                      ) : null}
+                    </div>
                   </div>
                   <button
                     className="flex h-11 items-center gap-1.5 rounded-xl bg-[var(--panel)] px-3 text-xs font-bold cursor-pointer hover:bg-white/10 text-[var(--ink)]"
