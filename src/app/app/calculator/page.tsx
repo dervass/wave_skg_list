@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { PageFrame } from "@/components/page-frame";
-import { Plus, X, RefreshCcw, Save, Calculator, Settings, CheckSquare, AlertTriangle } from "lucide-react";
+import { Plus, X, RefreshCcw, Save, Calculator, Settings, CheckSquare, AlertTriangle, Users, UserCheck } from "lucide-react";
 import { useAppSession } from "@/lib/client/session";
 
 // Utilities
@@ -33,6 +33,9 @@ interface ActualsData {
   total_pr_commission_cents: number;
   retained_cents: number;
   pr_lines: PrLine[];
+  booked_pr_guests?: number;
+  booked_direct_guests?: number;
+  booked_total_guests?: number;
 }
 
 export default function CalculatorPage() {
@@ -76,14 +79,8 @@ export default function CalculatorPage() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void fetchSetup();
-  }, [fetchSetup]);
-
-  useEffect(() => {
-    if (activeTab === "actuals" && !actuals) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      void fetchActuals();
-    }
-  }, [activeTab, actuals, fetchActuals]);
+    void fetchActuals();
+  }, [fetchSetup, fetchActuals]);
 
   // --- Handlers for Setup ---
   const saveBatch = async () => {
@@ -347,6 +344,64 @@ export default function CalculatorPage() {
               <div className="mb-6">
                 <h2 className="text-xl font-bold mb-1">Projections & Break-even</h2>
                 <p className="text-sm text-[var(--muted)]">Estimate your event&apos;s profitability.</p>
+              </div>
+
+              {/* Current Active Bookings Summary Widget */}
+              <div className="mb-8 rounded-2xl border border-[var(--line)] bg-[var(--panel)] p-4 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <Users size={18} className="text-[var(--accent)]" />
+                    <span className="text-xs font-black uppercase tracking-wider text-[var(--muted)]">
+                      Already Booked Reservations
+                    </span>
+                  </div>
+                  <span className="text-xs font-bold bg-[var(--panel-raised)] text-[var(--ink)] px-3 py-1 rounded-full border border-white/10">
+                    {actuals ? whole.format(actuals.booked_total_guests ?? 0) : "..."} Total Booked
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="rounded-xl bg-black/40 border border-white/5 p-3">
+                    <div className="flex items-center gap-1.5 mb-1 text-amber-400 font-bold text-xs">
+                      <UserCheck size={14} />
+                      <span>Booked via PR</span>
+                    </div>
+                    <p className="text-2xl font-black text-white">
+                      {actuals ? whole.format(actuals.booked_pr_guests ?? 0) : "—"}
+                      <span className="text-xs font-normal text-[var(--muted)] ml-1.5">guests</span>
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl bg-black/40 border border-white/5 p-3">
+                    <div className="flex items-center gap-1.5 mb-1 text-sky-400 font-bold text-xs">
+                      <Users size={14} />
+                      <span>Booked Direct (Self)</span>
+                    </div>
+                    <p className="text-2xl font-black text-white">
+                      {actuals ? whole.format(actuals.booked_direct_guests ?? 0) : "—"}
+                      <span className="text-xs font-normal text-[var(--muted)] ml-1.5">guests</span>
+                    </p>
+                  </div>
+                </div>
+
+                {actuals && (actuals.booked_total_guests ?? 0) > 0 && (
+                  <div className="pt-1 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const total = actuals.booked_total_guests ?? 0;
+                        const pr = actuals.booked_pr_guests ?? 0;
+                        if (total > 0) {
+                          setProjGuests(total);
+                          setProjPrPercent(Math.round((pr / total) * 100));
+                        }
+                      }}
+                      className="text-xs font-bold text-[var(--accent)] hover:underline cursor-pointer flex items-center gap-1.5"
+                    >
+                      <RefreshCcw size={12} /> Sync Projections to Bookings ({whole.format(actuals.booked_total_guests ?? 0)} guests)
+                    </button>
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
