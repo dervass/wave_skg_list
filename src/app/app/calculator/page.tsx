@@ -119,21 +119,25 @@ export default function CalculatorPage() {
     setSavingRates(false);
   };
 
-  const removePr = async (prId: string) => {
-    if (!confirm("Disable this PR for this event?")) return;
-    const res = await fetch("/api/prs", {
-      method: "PATCH",
-      body: JSON.stringify({ prId, active: false })
-    });
-    if (res.ok) fetchSetup();
-  };
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
-  const deletePrPermanently = async (prId: string, name: string) => {
-    if (!confirm(`Are you sure you want to PERMANENTLY delete PR "${name}" from the system? This cannot be undone.`)) return;
+  const deletePrPermanently = async (prId: string) => {
     const res = await fetch(`/api/prs?prId=${encodeURIComponent(prId)}`, {
       method: "DELETE"
     });
     if (res.ok) fetchSetup();
+  };
+
+  const handleDeleteClick = (id: string, onDelete: () => void) => {
+    if (confirmDeleteId === id) {
+      setConfirmDeleteId(null);
+      onDelete();
+    } else {
+      setConfirmDeleteId(id);
+      setTimeout(() => {
+        setConfirmDeleteId((curr) => (curr === id ? null : curr));
+      }, 4000);
+    }
   };
 
   // --- Render Tabs ---
@@ -270,18 +274,16 @@ export default function CalculatorPage() {
                           />
                         </div>
                         <button 
-                          onClick={() => removePr(pr.pr_id)}
-                          className="p-2 text-amber-400/70 hover:text-amber-300 shrink-0 cursor-pointer"
-                          title="Disable PR for event"
+                          onClick={() => handleDeleteClick(pr.pr_id, () => void deletePrPermanently(pr.pr_id))}
+                          className={`flex h-9 items-center justify-center gap-1.5 rounded-lg px-2.5 text-xs font-bold transition-all shrink-0 cursor-pointer ${
+                            confirmDeleteId === pr.pr_id
+                              ? "bg-red-600 text-white animate-pulse shadow-lg shadow-red-500/30 scale-105"
+                              : "bg-red-500/10 text-red-400 hover:bg-red-500/20"
+                          }`}
+                          title={confirmDeleteId === pr.pr_id ? "Click again to confirm delete" : "Delete PR"}
                         >
-                          <X size={18} />
-                        </button>
-                        <button 
-                          onClick={() => deletePrPermanently(pr.pr_id, pr.name)}
-                          className="p-2 text-red-400/70 hover:text-red-400 shrink-0 cursor-pointer"
-                          title="Permanently delete PR"
-                        >
-                          <Trash2 size={18} />
+                          <Trash2 size={16} />
+                          {confirmDeleteId === pr.pr_id && <span>Confirm?</span>}
                         </button>
                       </div>
                     ))}

@@ -1,6 +1,6 @@
 "use client";
 
-import { KeyRound, Plus, Trash2, UserRoundCheck, UserRoundX } from "lucide-react";
+import { KeyRound, Plus, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { PageFrame } from "@/components/page-frame";
@@ -9,6 +9,7 @@ import type { Profile } from "@/lib/domain/types";
 export default function AccountManagementPage() {
   const [accounts, setAccounts] = useState<Profile[]>([]);
   const [error, setError] = useState("");
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   async function load() {
     const response = await fetch("/api/admin/accounts");
@@ -60,13 +61,6 @@ export default function AccountManagementPage() {
   }
 
   async function deleteAccount(account: Profile) {
-    if (
-      !window.confirm(
-        `Are you sure you want to PERMANENTLY delete staff account ${account.display_name} (@${account.username})? This action cannot be undone.`,
-      )
-    ) {
-      return;
-    }
     const response = await fetch("/api/admin/accounts", {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
@@ -83,6 +77,18 @@ export default function AccountManagementPage() {
     );
     if (password) void updateAccount(account, { newPassword: password });
   }
+
+  const handleDeleteClick = (id: string, onDelete: () => void) => {
+    if (confirmDeleteId === id) {
+      setConfirmDeleteId(null);
+      onDelete();
+    } else {
+      setConfirmDeleteId(id);
+      setTimeout(() => {
+        setConfirmDeleteId((curr) => (curr === id ? null : curr));
+      }, 4000);
+    }
+  };
 
   return (
     <PageFrame>
@@ -107,8 +113,8 @@ export default function AccountManagementPage() {
             className="field"
             name="password"
             type="password"
-            minLength={8}
-            placeholder="Temporary password"
+            minLength={4}
+            placeholder="Temporary password (4+ chars)"
             required
           />
           <select className="field" name="role" defaultValue="door">
@@ -126,10 +132,7 @@ export default function AccountManagementPage() {
               <div className="min-w-0 flex-1">
                 <p className="truncate font-black">{account.display_name}</p>
                 <p className="text-xs text-[var(--muted)]">
-                  {account.username} · {account.role} ·{" "}
-                  <span className={account.is_active ? "text-emerald-400 font-semibold" : "text-amber-400 font-semibold"}>
-                    {account.is_active ? "active" : "disabled"}
-                  </span>
+                  @{account.username} · <span className="capitalize">{account.role}</span>
                 </p>
               </div>
               <button
@@ -140,35 +143,19 @@ export default function AccountManagementPage() {
               >
                 <KeyRound size={17} />
               </button>
+
               <button
-                className={`grid size-11 place-items-center rounded-xl cursor-pointer ${
-                  account.is_active
-                    ? "bg-amber-500/10 text-amber-300 hover:bg-amber-500/20"
-                    : "bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20"
+                className={`flex h-11 items-center justify-center gap-1.5 rounded-xl px-3 text-xs font-bold transition-all cursor-pointer ${
+                  confirmDeleteId === account.id
+                    ? "bg-red-600 text-white animate-pulse shadow-lg shadow-red-500/30 scale-105"
+                    : "bg-red-500/10 text-red-400 hover:bg-red-500/20"
                 }`}
-                onClick={() =>
-                  void updateAccount(account, { active: !account.is_active })
-                }
-                aria-label={
-                  account.is_active
-                    ? `Disable ${account.username}`
-                    : `Enable ${account.username}`
-                }
-                title={account.is_active ? "Disable account" : "Enable account"}
-              >
-                {account.is_active ? (
-                  <UserRoundX size={17} />
-                ) : (
-                  <UserRoundCheck size={17} />
-                )}
-              </button>
-              <button
-                className="grid size-11 place-items-center rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500/20 cursor-pointer"
-                onClick={() => void deleteAccount(account)}
-                aria-label={`Permanently delete ${account.username}`}
-                title="Permanently delete account"
+                onClick={() => handleDeleteClick(account.id, () => void deleteAccount(account))}
+                aria-label={`Delete ${account.username}`}
+                title={confirmDeleteId === account.id ? "Click again to confirm delete" : "Delete account"}
               >
                 <Trash2 size={17} />
+                {confirmDeleteId === account.id && <span>Confirm?</span>}
               </button>
             </article>
           ))}

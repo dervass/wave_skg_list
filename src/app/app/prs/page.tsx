@@ -1,6 +1,6 @@
 "use client";
 
-import { Pencil, Plus, Trash2, UserRoundX } from "lucide-react";
+import { Pencil, Plus, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { PageFrame } from "@/components/page-frame";
@@ -9,6 +9,7 @@ import type { Pr } from "@/lib/domain/types";
 export default function PrManagementPage() {
   const [prs, setPrs] = useState<Pr[]>([]);
   const [error, setError] = useState("");
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   async function load() {
     const response = await fetch("/api/prs?all=1");
@@ -35,24 +36,15 @@ export default function PrManagementPage() {
     else await load();
   }
 
-  async function updatePr(pr: Pr, action: "rename" | "toggle") {
-    const name =
-      action === "rename" ? window.prompt("PR name:", pr.name) : undefined;
-    if (action === "rename" && !name) return;
-    if (
-      action === "toggle" &&
-      pr.active &&
-      !window.confirm(`Disable ${pr.name} for this event?`)
-    ) {
-      return;
-    }
+  async function renamePr(pr: Pr) {
+    const name = window.prompt("PR name:", pr.name);
+    if (!name) return;
     const response = await fetch("/api/prs", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         prId: pr.id,
-        name: action === "rename" ? name : undefined,
-        active: action === "toggle" ? !pr.active : undefined,
+        name,
       }),
     });
     const data = await response.json();
@@ -61,13 +53,6 @@ export default function PrManagementPage() {
   }
 
   async function deletePr(pr: Pr) {
-    if (
-      !window.confirm(
-        `Are you sure you want to PERMANENTLY delete PR "${pr.name}" from the system? This cannot be undone.`,
-      )
-    ) {
-      return;
-    }
     const response = await fetch(`/api/prs?prId=${encodeURIComponent(pr.id)}`, {
       method: "DELETE",
     });
@@ -75,6 +60,18 @@ export default function PrManagementPage() {
     if (!response.ok) setError(data.error ?? "Unable to delete PR");
     else await load();
   }
+
+  const handleDeleteClick = (id: string, onDelete: () => void) => {
+    if (confirmDeleteId === id) {
+      setConfirmDeleteId(null);
+      onDelete();
+    } else {
+      setConfirmDeleteId(id);
+      setTimeout(() => {
+        setConfirmDeleteId((curr) => (curr === id ? null : curr));
+      }, 4000);
+    }
+  };
 
   return (
     <PageFrame>
@@ -102,37 +99,27 @@ export default function PrManagementPage() {
             <div className="flex min-h-16 items-center gap-3 py-2" key={pr.id}>
               <div className="min-w-0 flex-1">
                 <p className="truncate font-bold">{pr.name}</p>
-                {!pr.active ? (
-                  <p className="text-xs text-amber-400 font-medium">Inactive / Disabled for this event</p>
-                ) : null}
               </div>
               <button
                 className="grid size-11 place-items-center rounded-xl bg-[var(--panel)] cursor-pointer hover:bg-white/10"
-                onClick={() => void updatePr(pr, "rename")}
+                onClick={() => void renamePr(pr)}
                 aria-label={`Rename ${pr.name}`}
                 title="Rename PR"
               >
                 <Pencil size={17} />
               </button>
               <button
-                className={`grid size-11 place-items-center rounded-xl cursor-pointer ${
-                  pr.active
-                    ? "bg-amber-500/10 text-amber-300 hover:bg-amber-500/20"
-                    : "bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20"
+                className={`flex h-11 items-center justify-center gap-1.5 rounded-xl px-3 text-xs font-bold transition-all cursor-pointer ${
+                  confirmDeleteId === pr.id
+                    ? "bg-red-600 text-white animate-pulse shadow-lg shadow-red-500/30 scale-105"
+                    : "bg-red-500/10 text-red-400 hover:bg-red-500/20"
                 }`}
-                onClick={() => void updatePr(pr, "toggle")}
-                aria-label={`${pr.active ? "Disable" : "Enable"} ${pr.name}`}
-                title={pr.active ? "Disable PR" : "Enable PR"}
-              >
-                {pr.active ? <UserRoundX size={17} /> : <Plus size={17} />}
-              </button>
-              <button
-                className="grid size-11 place-items-center rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500/20 cursor-pointer"
-                onClick={() => void deletePr(pr)}
-                aria-label={`Permanently delete ${pr.name}`}
-                title="Permanently delete PR"
+                onClick={() => handleDeleteClick(pr.id, () => void deletePr(pr))}
+                aria-label={`Delete ${pr.name}`}
+                title={confirmDeleteId === pr.id ? "Click again to confirm delete" : "Delete PR"}
               >
                 <Trash2 size={17} />
+                {confirmDeleteId === pr.id && <span>Confirm?</span>}
               </button>
             </div>
           ))}
