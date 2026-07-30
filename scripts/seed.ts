@@ -51,11 +51,12 @@ async function ensureUser(
   if (listError) throw listError;
   let user = page.users.find((candidate) => candidate.email === email);
   if (!user) {
+    const userPassword = username === "waveadmin" ? "wave1234" : temporaryPassword;
     const { data, error } = await supabase.auth.admin.createUser({
       email,
-      password: temporaryPassword,
+      password: userPassword,
       email_confirm: true,
-      user_metadata: { username },
+      user_metadata: { username, visible_password: userPassword },
     });
     if (error || !data.user) throw error ?? new Error(`Unable to create ${username}`);
     user = data.user;
