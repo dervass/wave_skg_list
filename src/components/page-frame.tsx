@@ -1,10 +1,20 @@
 "use client";
 
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+
 import { AppHeader } from "@/components/app-header";
 import { useAppSession } from "@/lib/client/session";
 
 export function PageFrame({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
   const { profile, event, loading } = useAppSession();
+
+  useEffect(() => {
+    if (!loading && (!profile || !event)) {
+      router.replace("/login");
+    }
+  }, [loading, profile, event, router]);
 
   if (loading) {
     return (
@@ -30,7 +40,15 @@ export function PageFrame({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (!profile || !event) return null;
+  if (!profile || !event) {
+    return (
+      <div className="flex min-h-svh items-center justify-center bg-[var(--background)] px-4">
+        <div className="text-center">
+          <p className="text-sm font-bold text-[var(--muted)]">Redirecting to sign in...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>

@@ -106,14 +106,21 @@ export function useAppSession() {
 
     pendingSessionPromise
       .then((data) => {
-        if (active && data) {
-          setSessionData(data);
+        if (active) {
+          if (data) {
+            setSessionData(data);
+          } else {
+            clearSessionCache();
+            router.replace("/login");
+          }
           setLoading(false);
         }
       })
       .catch(() => {
         if (active) {
+          clearSessionCache();
           setLoading(false);
+          router.replace("/login");
         }
       });
 
