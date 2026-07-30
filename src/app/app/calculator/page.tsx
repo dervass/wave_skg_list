@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { PageFrame } from "@/components/page-frame";
-import { Plus, X, RefreshCcw, Save, Calculator, Settings, CheckSquare, AlertTriangle, Users, UserCheck } from "lucide-react";
+import { Plus, X, RefreshCcw, Save, Calculator, Settings, CheckSquare, AlertTriangle, Users, UserCheck, Trash2 } from "lucide-react";
 import { useAppSession } from "@/lib/client/session";
 
 // Utilities
@@ -120,11 +120,18 @@ export default function CalculatorPage() {
   };
 
   const removePr = async (prId: string) => {
-    if (!confirm("Are you sure you want to remove this PR?")) return;
-    // Since Next.js has an existing PR PATCH for active toggle:
+    if (!confirm("Disable this PR for this event?")) return;
     const res = await fetch("/api/prs", {
       method: "PATCH",
       body: JSON.stringify({ prId, active: false })
+    });
+    if (res.ok) fetchSetup();
+  };
+
+  const deletePrPermanently = async (prId: string, name: string) => {
+    if (!confirm(`Are you sure you want to PERMANENTLY delete PR "${name}" from the system? This cannot be undone.`)) return;
+    const res = await fetch(`/api/prs?prId=${encodeURIComponent(prId)}`, {
+      method: "DELETE"
     });
     if (res.ok) fetchSetup();
   };
@@ -264,9 +271,17 @@ export default function CalculatorPage() {
                         </div>
                         <button 
                           onClick={() => removePr(pr.pr_id)}
-                          className="p-2 text-[var(--muted)] hover:text-red-400 shrink-0"
+                          className="p-2 text-amber-400/70 hover:text-amber-300 shrink-0 cursor-pointer"
+                          title="Disable PR for event"
                         >
                           <X size={18} />
+                        </button>
+                        <button 
+                          onClick={() => deletePrPermanently(pr.pr_id, pr.name)}
+                          className="p-2 text-red-400/70 hover:text-red-400 shrink-0 cursor-pointer"
+                          title="Permanently delete PR"
+                        >
+                          <Trash2 size={18} />
                         </button>
                       </div>
                     ))}

@@ -80,3 +80,27 @@ export async function PATCH(request: Request) {
   }
   return NextResponse.json({ ok: true });
 }
+
+export async function DELETE(request: NextRequest) {
+  const context = await getRequestContext(["admin", "organizer"]);
+  if (!context) return unauthorized();
+  if (context.event.status === "closed") return badRequest("Event is closed");
+
+  const prId = request.nextUrl.searchParams.get("prId");
+  if (!prId) return badRequest("PR ID is required");
+
+  // Remove assignment for this event
+  await context.supabase
+    .from("event_prs")
+    .delete()
+    .eq("event_id", context.event.id)
+    .eq("pr_id", prId);
+
+  // Permanently delete PR entry if not referenced in ledger/reservations
+  await context.supabase
+    .from("prs")
+    .delete()
+    .eq("id", prId);
+
+  return NextResponse.json({ ok: true });
+}

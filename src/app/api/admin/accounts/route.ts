@@ -89,3 +89,18 @@ export async function PATCH(request: Request) {
   }
   return NextResponse.json({ ok: true });
 }
+
+export async function DELETE(request: Request) {
+  const context = await getRequestContext(["admin"]);
+  if (!context) return unauthorized();
+  const { userId } = await request.json().catch(() => ({}));
+  if (!userId) return badRequest("User ID is required");
+  if (userId === context.profile.id) return badRequest("Cannot delete your own admin account");
+
+  const service = createServiceRoleClient();
+  await service.from("event_assignments").delete().eq("user_id", userId);
+  await service.from("profiles").delete().eq("id", userId);
+  await service.auth.admin.deleteUser(userId);
+
+  return NextResponse.json({ ok: true });
+}

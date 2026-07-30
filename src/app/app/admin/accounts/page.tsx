@@ -1,6 +1,6 @@
 "use client";
 
-import { KeyRound, Plus, UserRoundCheck, UserRoundX } from "lucide-react";
+import { KeyRound, Plus, Trash2, UserRoundCheck, UserRoundX } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { PageFrame } from "@/components/page-frame";
@@ -59,6 +59,24 @@ export default function AccountManagementPage() {
     else await load();
   }
 
+  async function deleteAccount(account: Profile) {
+    if (
+      !window.confirm(
+        `Are you sure you want to PERMANENTLY delete staff account ${account.display_name} (@${account.username})? This action cannot be undone.`,
+      )
+    ) {
+      return;
+    }
+    const response = await fetch("/api/admin/accounts", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: account.id }),
+    });
+    const data = await response.json();
+    if (!response.ok) setError(data.error ?? "Unable to delete account");
+    else await load();
+  }
+
   function resetPassword(account: Profile) {
     const password = window.prompt(
       `New temporary password for ${account.username} (8+ characters):`,
@@ -109,21 +127,24 @@ export default function AccountManagementPage() {
                 <p className="truncate font-black">{account.display_name}</p>
                 <p className="text-xs text-[var(--muted)]">
                   {account.username} · {account.role} ·{" "}
-                  {account.is_active ? "active" : "disabled"}
+                  <span className={account.is_active ? "text-emerald-400 font-semibold" : "text-amber-400 font-semibold"}>
+                    {account.is_active ? "active" : "disabled"}
+                  </span>
                 </p>
               </div>
               <button
-                className="grid size-11 place-items-center rounded-xl bg-[var(--panel)]"
+                className="grid size-11 place-items-center rounded-xl bg-[var(--panel)] cursor-pointer hover:bg-white/10"
                 onClick={() => resetPassword(account)}
                 aria-label={`Reset password for ${account.username}`}
+                title="Reset password"
               >
                 <KeyRound size={17} />
               </button>
               <button
-                className={`grid size-11 place-items-center rounded-xl ${
+                className={`grid size-11 place-items-center rounded-xl cursor-pointer ${
                   account.is_active
-                    ? "bg-red-500/10 text-red-300"
-                    : "bg-emerald-500/10 text-emerald-300"
+                    ? "bg-amber-500/10 text-amber-300 hover:bg-amber-500/20"
+                    : "bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20"
                 }`}
                 onClick={() =>
                   void updateAccount(account, { active: !account.is_active })
@@ -133,12 +154,21 @@ export default function AccountManagementPage() {
                     ? `Disable ${account.username}`
                     : `Enable ${account.username}`
                 }
+                title={account.is_active ? "Disable account" : "Enable account"}
               >
                 {account.is_active ? (
                   <UserRoundX size={17} />
                 ) : (
                   <UserRoundCheck size={17} />
                 )}
+              </button>
+              <button
+                className="grid size-11 place-items-center rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500/20 cursor-pointer"
+                onClick={() => void deleteAccount(account)}
+                aria-label={`Permanently delete ${account.username}`}
+                title="Permanently delete account"
+              >
+                <Trash2 size={17} />
               </button>
             </article>
           ))}

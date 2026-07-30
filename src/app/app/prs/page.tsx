@@ -1,6 +1,6 @@
 "use client";
 
-import { Pencil, Plus, UserRoundX } from "lucide-react";
+import { Pencil, Plus, Trash2, UserRoundX } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { PageFrame } from "@/components/page-frame";
@@ -42,7 +42,7 @@ export default function PrManagementPage() {
     if (
       action === "toggle" &&
       pr.active &&
-      !window.confirm(`Remove ${pr.name} from this event’s active PR list?`)
+      !window.confirm(`Disable ${pr.name} for this event?`)
     ) {
       return;
     }
@@ -60,6 +60,22 @@ export default function PrManagementPage() {
     else await load();
   }
 
+  async function deletePr(pr: Pr) {
+    if (
+      !window.confirm(
+        `Are you sure you want to PERMANENTLY delete PR "${pr.name}" from the system? This cannot be undone.`,
+      )
+    ) {
+      return;
+    }
+    const response = await fetch(`/api/prs?prId=${encodeURIComponent(pr.id)}`, {
+      method: "DELETE",
+    });
+    const data = await response.json();
+    if (!response.ok) setError(data.error ?? "Unable to delete PR");
+    else await load();
+  }
+
   return (
     <PageFrame>
       <main className="safe-bottom mx-auto max-w-2xl px-4 py-7">
@@ -69,7 +85,7 @@ export default function PrManagementPage() {
             <h1 className="text-3xl font-black tracking-[-0.04em]">PR names</h1>
           </div>
           <button
-            className="button-primary min-h-12 px-3"
+            className="button-primary min-h-12 px-3 cursor-pointer"
             onClick={() => void createPr()}
           >
             <Plus size={19} />
@@ -87,22 +103,36 @@ export default function PrManagementPage() {
               <div className="min-w-0 flex-1">
                 <p className="truncate font-bold">{pr.name}</p>
                 {!pr.active ? (
-                  <p className="text-xs text-[var(--muted)]">Inactive for this event</p>
+                  <p className="text-xs text-amber-400 font-medium">Inactive / Disabled for this event</p>
                 ) : null}
               </div>
               <button
-                className="grid size-11 place-items-center rounded-xl bg-[var(--panel)]"
+                className="grid size-11 place-items-center rounded-xl bg-[var(--panel)] cursor-pointer hover:bg-white/10"
                 onClick={() => void updatePr(pr, "rename")}
                 aria-label={`Rename ${pr.name}`}
+                title="Rename PR"
               >
                 <Pencil size={17} />
               </button>
               <button
-                className="grid size-11 place-items-center rounded-xl bg-red-500/10 text-red-300"
+                className={`grid size-11 place-items-center rounded-xl cursor-pointer ${
+                  pr.active
+                    ? "bg-amber-500/10 text-amber-300 hover:bg-amber-500/20"
+                    : "bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20"
+                }`}
                 onClick={() => void updatePr(pr, "toggle")}
-                aria-label={`${pr.active ? "Deactivate" : "Activate"} ${pr.name}`}
+                aria-label={`${pr.active ? "Disable" : "Enable"} ${pr.name}`}
+                title={pr.active ? "Disable PR" : "Enable PR"}
               >
                 {pr.active ? <UserRoundX size={17} /> : <Plus size={17} />}
+              </button>
+              <button
+                className="grid size-11 place-items-center rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500/20 cursor-pointer"
+                onClick={() => void deletePr(pr)}
+                aria-label={`Permanently delete ${pr.name}`}
+                title="Permanently delete PR"
+              >
+                <Trash2 size={17} />
               </button>
             </div>
           ))}
