@@ -285,34 +285,6 @@ export default function AccountManagementPage() {
                   Close event and save final snapshot
                 </button>
               )}
-
-              <button
-                className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2.5 text-xs font-bold text-red-300 hover:bg-red-500/20 transition-colors"
-                disabled={eventPending}
-                onClick={async () => {
-                  const c1 = window.confirm("Are you sure you want to DELETE ALL RESERVATIONS for this event?");
-                  if (!c1) return;
-                  const c2 = window.confirm("FINAL CONFIRMATION: Are you 100% sure you want to PERMANENTLY REMOVE ALL RESERVATIONS?");
-                  if (!c2) return;
-
-                  setEventPending(true);
-                  setError("");
-                  setSuccessMsg("");
-                  const response = await fetch("/api/reservations?clear_all=true", {
-                    method: "DELETE",
-                  });
-                  const data = await response.json();
-                  if (!response.ok) {
-                    setError(data.error ?? "Failed to clear reservations");
-                  } else {
-                    setSuccessMsg("All event reservations have been deleted.");
-                  }
-                  setEventPending(false);
-                }}
-              >
-                <Trash2 size={16} />
-                Clear All Event Reservations (2-step confirm)
-              </button>
             </section>
 
             <form

@@ -5,7 +5,6 @@ import {
   Download,
   Pencil,
   SlidersHorizontal,
-  Trash2,
   XCircle,
 } from "lucide-react";
 import Link from "next/link";
@@ -20,25 +19,6 @@ export default function GuestListPage() {
   const [query, setQuery] = useState("");
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [loading, setLoading] = useState(true);
-
-  async function clearAllReservations() {
-    const confirm1 = window.confirm("Are you sure you want to DELETE ALL RESERVATIONS for this event?");
-    if (!confirm1) return;
-    const confirm2 = window.confirm("CONFIRM CLEAR ALL: Are you 100% sure you want to PERMANENTLY REMOVE ALL RESERVATIONS?");
-    if (!confirm2) return;
-
-    setLoading(true);
-    const response = await fetch("/api/reservations?clear_all=true", {
-      method: "DELETE",
-    });
-    const data = await response.json();
-    if (!response.ok) {
-      window.alert(data.error ?? "Failed to clear reservations");
-    } else {
-      setReservations([]);
-    }
-    setLoading(false);
-  }
 
   async function mutateReservation(
     reservation: Reservation,
@@ -164,14 +144,6 @@ export default function GuestListPage() {
               >
                 <Download size={20} />
               </a>
-              <button
-                onClick={clearAllReservations}
-                className="grid size-12 place-items-center rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors"
-                aria-label="Remove all reservations"
-                title="Remove all reservations (2-stage confirm)"
-              >
-                <Trash2 size={20} />
-              </button>
             </div>
           ) : null}
         </div>
