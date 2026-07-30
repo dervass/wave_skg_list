@@ -6,6 +6,8 @@ import { usePathname, useRouter } from "next/navigation";
 
 import type { EventSummary, Profile } from "@/lib/domain/types";
 
+import { clearSessionCache } from "@/lib/client/session";
+
 export function AppHeader({
   profile,
   event,
@@ -18,6 +20,7 @@ export function AppHeader({
   const isHome = pathname === "/app";
 
   async function logout() {
+    clearSessionCache();
     await fetch("/api/auth/logout", { method: "POST" });
     router.replace("/login");
     router.refresh();

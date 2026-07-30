@@ -21,11 +21,22 @@ export async function getRequestContext(
   } = await supabase.auth.getUser();
   if (!user) return null;
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("id,username,display_name,role,is_active")
-    .eq("id", user.id)
-    .single();
+  let assignmentQuery = supabase
+    .from("event_assignments")
+    .select("events(id,name,venue_name,starts_at,status)")
+    .eq("user_id", user.id);
+  if (eventId) assignmentQuery = assignmentQuery.eq("event_id", eventId);
+
+  const [profileResult, assignmentResult] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("id,username,display_name,role,is_active")
+      .eq("id", user.id)
+      .single(),
+    assignmentQuery.limit(1).maybeSingle(),
+  ]);
+
+  const profile = profileResult.data;
   if (
     !profile ||
     !profile.is_active ||
@@ -34,13 +45,7 @@ export async function getRequestContext(
     return null;
   }
 
-  let assignmentQuery = supabase
-    .from("event_assignments")
-    .select("events(id,name,venue_name,starts_at,status)")
-    .eq("user_id", user.id);
-  if (eventId) assignmentQuery = assignmentQuery.eq("event_id", eventId);
-  const { data: assignment } = await assignmentQuery.limit(1).maybeSingle();
-  const assignedEvent = assignment?.events;
+  const assignedEvent = assignmentResult.data?.events;
   const event = Array.isArray(assignedEvent)
     ? assignedEvent[0]
     : assignedEvent;

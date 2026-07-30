@@ -64,6 +64,53 @@ export async function getCachedReservations(eventId: string) {
   return db.getAllFromIndex("reservations", "by-event", eventId);
 }
 
+export async function exportEmergencyCsvFromCache(eventId: string) {
+  const reservations = await getCachedReservations(eventId);
+  if (!reservations || reservations.length === 0) {
+    throw new Error("No cached reservations found for offline export");
+  }
+  function cell(value: unknown): string {
+    return `"${String(value ?? "").replaceAll('"', '""')}"`;
+  }
+  const rows = [
+    [
+      "guest_name",
+      "identifier",
+      "source",
+      "pr",
+      "expected",
+      "arrived",
+      "remaining",
+      "status",
+    ].map(cell).join(","),
+    ...reservations.map((row) =>
+      [
+        row.guest_name,
+        row.instagram_username ?? row.phone ?? "",
+        row.source,
+        row.pr_name ?? "",
+        row.expected_group_size,
+        row.arrived_count,
+        Math.max(0, Number(row.expected_group_size) - Number(row.arrived_count)),
+        row.status,
+      ]
+        .map(cell)
+        .join(","),
+    ),
+  ];
+  const blob = new Blob([`\uFEFF${rows.join("\r\n")}`], {
+    type: "text/csv;charset=utf-8;",
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `wave-skg-emergency-offline-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 export async function queueOperation(operation: OfflineCheckinOperation) {
   if (!dbPromise) throw new Error("Offline storage is unavailable");
   const db = await dbPromise;

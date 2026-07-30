@@ -23,11 +23,8 @@ export async function POST(request: Request) {
   if (!context) return unauthorized();
   const parsed = schema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return badRequest("Invalid walk-in", parsed.error.flatten());
-  if (
-    parsed.data.kind === "pr" &&
-    (!parsed.data.prId || !parsed.data.prConfirmed)
-  ) {
-    return badRequest("Choose a PR and confirm the guest personally named them");
+  if (parsed.data.kind === "pr" && !parsed.data.prId) {
+    return badRequest("Choose a PR for PR walk-in");
   }
   const { data, error } = await context.supabase.rpc("record_walk_in", {
     p_event_id: context.event.id,
@@ -35,7 +32,7 @@ export async function POST(request: Request) {
     p_count: parsed.data.count,
     p_kind: parsed.data.kind,
     p_pr_id: parsed.data.prId ?? null,
-    p_pr_confirmed: parsed.data.prConfirmed ?? false,
+    p_pr_confirmed: parsed.data.kind === "pr" ? true : (parsed.data.prConfirmed ?? false),
     p_note: parsed.data.note ?? null,
     p_idempotency_key: parsed.data.idempotencyKey,
     p_recorded_at: parsed.data.recordedAt ?? new Date().toISOString(),

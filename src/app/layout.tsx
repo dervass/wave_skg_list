@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 
 import "@/app/globals.css";
+import { CookieBanner } from "@/components/cookie-banner";
 import { ServiceWorkerRegistration } from "@/components/service-worker-registration";
 
 export const metadata: Metadata = {
@@ -33,6 +34,7 @@ export default function RootLayout({
     <html lang="en">
       <body>
         {children}
+        <CookieBanner />
         <ServiceWorkerRegistration />
       </body>
     </html>

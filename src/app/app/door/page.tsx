@@ -9,12 +9,13 @@ import {
   UserRoundPlus,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { PageFrame } from "@/components/page-frame";
 import { useAppSession } from "@/lib/client/session";
 import {
   cacheReservations,
+  exportEmergencyCsvFromCache,
   getCachedReservations,
   getPendingCount,
   queueOperation,
@@ -34,10 +35,88 @@ interface RecentItem {
   created_at: string;
 }
 
+const ReservationCard = memo(function ReservationCard({
+  reservation,
+  busy,
+  onCheckIn,
+  onCheckInCustom,
+}: {
+  reservation: Reservation;
+  busy: boolean;
+  onCheckIn: (reservation: Reservation, count: number) => void;
+  onCheckInCustom: (reservation: Reservation, remaining: number) => void;
+}) {
+  const remaining = Math.max(
+    0,
+    reservation.expected_group_size - reservation.arrived_count,
+  );
+
+  return (
+    <article className="rounded-2xl border border-[var(--line)] bg-[var(--panel)] p-4 [content-visibility:auto]">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="truncate text-xl font-black tracking-[-0.02em]">
+            {reservation.guest_name}
+          </h2>
+          <p className="mt-1 text-sm font-bold text-[var(--accent)]">
+            {reservation.source === "pr"
+              ? reservation.pr_name ?? "PR"
+              : "Direct Wave-SKG"}
+          </p>
+        </div>
+        <div className="shrink-0 text-right">
+          <p className="text-3xl font-black tabular-nums">{remaining}</p>
+          <p className="eyebrow">remaining</p>
+        </div>
+      </div>
+      <div className="mt-3 flex items-center justify-between border-t border-[var(--line)] pt-3 text-sm">
+        <span>
+          Expected <b>{reservation.expected_group_size}</b>
+        </span>
+        <span>
+          Arrived <b>{reservation.arrived_count}</b>
+        </span>
+        <span className="text-[var(--muted)]">
+          {reservation.instagram_username ??
+            reservation.phone ??
+            "No contact shown"}
+        </span>
+      </div>
+      <div className="mt-4 grid grid-cols-4 gap-2">
+        {[1, 2, 3].map((count) => (
+          <button
+            key={count}
+            onClick={() => onCheckIn(reservation, count)}
+            disabled={remaining < count || busy}
+            className="grid min-h-14 place-items-center rounded-xl bg-[var(--panel-raised)] text-lg font-black disabled:opacity-25"
+          >
+            +{count}
+          </button>
+        ))}
+        <button
+          onClick={() => onCheckInCustom(reservation, remaining)}
+          disabled={remaining === 0 || busy}
+          className="min-h-14 rounded-xl bg-[var(--panel-raised)] px-2 text-sm font-black disabled:opacity-30"
+        >
+          Custom
+        </button>
+      </div>
+      <button
+        onClick={() => onCheckIn(reservation, remaining)}
+        disabled={remaining === 0 || busy}
+        className="mt-2 min-h-14 w-full rounded-xl bg-[var(--accent)] px-3 text-sm font-black text-black disabled:opacity-30"
+      >
+        All remaining ({remaining})
+      </button>
+    </article>
+  );
+});
+
 export default function DoorPage() {
   const { event } = useAppSession();
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [query, setQuery] = useState("");
+  const [loadingData, setLoadingData] = useState(true);
   const [online, setOnline] = useState(
     typeof navigator === "undefined" ? true : navigator.onLine,
   );
@@ -53,24 +132,30 @@ export default function DoorPage() {
     () => new Set(),
   );
 
+  const eventId = event?.id;
+
   const loadLiveData = useCallback(async () => {
-    if (!event || !navigator.onLine) return;
-    const [listResponse, summaryResponse] = await Promise.all([
-      fetch("/api/reservations?q="),
-      fetch("/api/door-summary"),
-    ]);
-    if (listResponse.ok) {
-      const listData = await listResponse.json();
-      const rows = listData.reservations ?? [];
-      setReservations(rows);
-      await cacheReservations(rows);
+    if (!eventId || !navigator.onLine) return;
+    try {
+      const [listResponse, summaryResponse] = await Promise.all([
+        fetch("/api/reservations?q="),
+        fetch("/api/door-summary"),
+      ]);
+      if (listResponse.ok) {
+        const listData = await listResponse.json();
+        const rows = listData.reservations ?? [];
+        setReservations(rows);
+        await cacheReservations(rows);
+      }
+      if (summaryResponse.ok) {
+        const summary = await summaryResponse.json();
+        setTotal(summary.total_checked_in ?? 0);
+        setRecent(summary.recent ?? []);
+      }
+    } finally {
+      setLoadingData(false);
     }
-    if (summaryResponse.ok) {
-      const summary = await summaryResponse.json();
-      setTotal(summary.total_checked_in ?? 0);
-      setRecent(summary.recent ?? []);
-    }
-  }, [event]);
+  }, [eventId]);
 
   const runSync = useCallback(async () => {
     if (!navigator.onLine) return;
@@ -88,20 +173,28 @@ export default function DoorPage() {
   }, [loadLiveData]);
 
   useEffect(() => {
-    if (!event) return;
+    if (!eventId) return;
     let active = true;
-    getCachedReservations(event.id).then((rows) => {
-      if (active && rows.length) setReservations(rows);
+    getCachedReservations(eventId).then((rows) => {
+      if (active) {
+        if (rows.length) {
+          setReservations(rows);
+          setLoadingData(false);
+        }
+      }
     });
     getPendingCount().then((count) => active && setPendingCount(count));
     const initialLoad = window.setTimeout(() => {
-      void loadLiveData().catch(() => setOnline(false));
+      void loadLiveData().catch(() => {
+        setOnline(false);
+        setLoadingData(false);
+      });
     }, 0);
     return () => {
       active = false;
       window.clearTimeout(initialLoad);
     };
-  }, [event, loadLiveData]);
+  }, [eventId, loadLiveData]);
 
   useEffect(() => {
     const handleOnline = () => {
@@ -137,88 +230,94 @@ export default function DoorPage() {
     );
   }, [query, reservations]);
 
-  async function checkIn(reservation: Reservation, requested: number) {
-    if (inFlightCheckins.current.has(reservation.id)) return;
-    const remaining = reservation.expected_group_size - reservation.arrived_count;
-    const delta = Math.min(requested, remaining);
-    if (delta <= 0 || !event) return;
-    inFlightCheckins.current.add(reservation.id);
-    setBusyReservations((current) => new Set(current).add(reservation.id));
-    const operation: OfflineCheckinOperation = {
-      idempotencyKey: crypto.randomUUID(),
-      kind: "checkin",
-      eventId: event.id,
-      reservationId: reservation.id,
-      delta,
-      recordedAt: new Date().toISOString(),
-    };
-    setError("");
-    setReservations((current) =>
-      current.map((row) =>
-        row.id === reservation.id
-          ? {
-              ...row,
-              arrived_count: row.arrived_count + delta,
-              status:
-                row.arrived_count + delta >= row.expected_group_size
-                  ? "fully_arrived"
-                  : "partially_arrived",
-            }
-          : row,
-      ),
-    );
-    setTotal((current) => current + delta);
-    setRecent((current) =>
-      [
-        {
-          id: operation.idempotencyKey,
-          guest_name: reservation.guest_name,
-          delta,
-          created_at: operation.recordedAt,
-        },
-        ...current,
-      ].slice(0, 8),
-    );
-    try {
-      if (!navigator.onLine) throw new TypeError("Offline");
-      const response = await fetch("/api/checkins", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(operation),
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error ?? "Check-in rejected");
-    } catch (caught) {
-      if (!navigator.onLine || caught instanceof TypeError) {
-        await queueOperation(operation);
-        setPendingCount(await getPendingCount());
-      } else {
-        setError(caught instanceof Error ? caught.message : "Check-in rejected");
-        await loadLiveData();
+  const checkIn = useCallback(
+    async (reservation: Reservation, requested: number) => {
+      if (inFlightCheckins.current.has(reservation.id)) return;
+      const remaining = reservation.expected_group_size - reservation.arrived_count;
+      const delta = Math.min(requested, remaining);
+      if (delta <= 0 || !event) return;
+      inFlightCheckins.current.add(reservation.id);
+      setBusyReservations((current) => new Set(current).add(reservation.id));
+      const operation: OfflineCheckinOperation = {
+        idempotencyKey: crypto.randomUUID(),
+        kind: "checkin",
+        eventId: event.id,
+        reservationId: reservation.id,
+        delta,
+        recordedAt: new Date().toISOString(),
+      };
+      setError("");
+      setReservations((current) =>
+        current.map((row) =>
+          row.id === reservation.id
+            ? {
+                ...row,
+                arrived_count: row.arrived_count + delta,
+                status:
+                  row.arrived_count + delta >= row.expected_group_size
+                    ? "fully_arrived"
+                    : "partially_arrived",
+              }
+            : row,
+        ),
+      );
+      setTotal((current) => current + delta);
+      setRecent((current) =>
+        [
+          {
+            id: operation.idempotencyKey,
+            guest_name: reservation.guest_name,
+            delta,
+            created_at: operation.recordedAt,
+          },
+          ...current,
+        ].slice(0, 8),
+      );
+      try {
+        if (!navigator.onLine) throw new TypeError("Offline");
+        const response = await fetch("/api/checkins", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(operation),
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error ?? "Check-in rejected");
+      } catch (caught) {
+        if (!navigator.onLine || caught instanceof TypeError) {
+          await queueOperation(operation);
+          setPendingCount(await getPendingCount());
+        } else {
+          setError(caught instanceof Error ? caught.message : "Check-in rejected");
+          await loadLiveData();
+        }
+      } finally {
+        inFlightCheckins.current.delete(reservation.id);
+        setBusyReservations((current) => {
+          const next = new Set(current);
+          next.delete(reservation.id);
+          return next;
+        });
       }
-    } finally {
-      inFlightCheckins.current.delete(reservation.id);
-      setBusyReservations((current) => {
-        const next = new Set(current);
-        next.delete(reservation.id);
-        return next;
-      });
-    }
-  }
+    },
+    [event, loadLiveData],
+  );
 
-  function checkInCustom(reservation: Reservation, remaining: number) {
-    const value = window.prompt(
-      `How many of the ${remaining} remaining guests arrived?`,
-      "1",
-    );
-    if (value === null) return;
-    const count = Number(value);
-    if (!Number.isInteger(count) || count < 1 || count > remaining) {
-      setError(`Enter a whole number between 1 and ${remaining}`);
-      return;
-    }
-    void checkIn(reservation, count);
-  }
+  const checkInCustom = useCallback(
+    (reservation: Reservation, remaining: number) => {
+      const value = window.prompt(
+        `How many of the ${remaining} remaining guests arrived?`,
+        "1",
+      );
+      if (value === null) return;
+      const count = Number(value);
+      if (!Number.isInteger(count) || count < 1 || count > remaining) {
+        setError(`Enter a whole number between 1 and ${remaining}`);
+        return;
+      }
+      void checkIn(reservation, count);
+    },
+    [checkIn],
+  );
 
   async function addWalkIn(operation: OfflineCheckinOperation) {
     setWalkInOpen(false);
@@ -263,6 +362,18 @@ export default function DoorPage() {
     }
   }
 
+  async function handleEmergencyExport() {
+    if (navigator.onLine) {
+      window.location.href = "/api/emergency-export";
+    } else if (event) {
+      try {
+        await exportEmergencyCsvFromCache(event.id);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to export offline CSV");
+      }
+    }
+  }
+
   return (
     <PageFrame>
       <div className="sticky top-0 z-30 border-b border-[var(--line)] bg-[#0b0b0af2] px-4 py-3 backdrop-blur-xl">
@@ -302,7 +413,6 @@ export default function DoorPage() {
             size={25}
           />
           <input
-            autoFocus
             className="field min-h-16 pl-14 pr-12 text-lg font-bold"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
@@ -340,81 +450,24 @@ export default function DoorPage() {
         ) : null}
 
         <div className="space-y-3">
-          {filtered.map((reservation) => {
-            const remaining = Math.max(
-              0,
-              reservation.expected_group_size - reservation.arrived_count,
-            );
-            return (
-              <article
+          {loadingData && reservations.length === 0 ? (
+            <>
+              <div className="h-[188px] w-full rounded-2xl border border-[var(--line)] bg-[var(--panel)] animate-pulse" />
+              <div className="h-[188px] w-full rounded-2xl border border-[var(--line)] bg-[var(--panel)] animate-pulse" />
+              <div className="h-[188px] w-full rounded-2xl border border-[var(--line)] bg-[var(--panel)] animate-pulse" />
+            </>
+          ) : (
+            filtered.map((reservation) => (
+              <ReservationCard
                 key={reservation.id}
-                className="rounded-2xl border border-[var(--line)] bg-[var(--panel)] p-4 [content-visibility:auto]"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <h2 className="truncate text-xl font-black tracking-[-0.02em]">
-                      {reservation.guest_name}
-                    </h2>
-                    <p className="mt-1 text-sm font-bold text-[var(--accent)]">
-                      {reservation.source === "pr"
-                        ? reservation.pr_name ?? "PR"
-                        : "Direct Wave-SKG"}
-                    </p>
-                  </div>
-                  <div className="shrink-0 text-right">
-                    <p className="text-3xl font-black tabular-nums">{remaining}</p>
-                    <p className="eyebrow">remaining</p>
-                  </div>
-                </div>
-                <div className="mt-3 flex items-center justify-between border-t border-[var(--line)] pt-3 text-sm">
-                  <span>
-                    Expected <b>{reservation.expected_group_size}</b>
-                  </span>
-                  <span>
-                    Arrived <b>{reservation.arrived_count}</b>
-                  </span>
-                  <span className="text-[var(--muted)]">
-                    {reservation.instagram_username ??
-                      reservation.phone ??
-                      "No contact shown"}
-                  </span>
-                </div>
-                <div className="mt-4 grid grid-cols-4 gap-2">
-                  {[1, 2, 3].map((count) => (
-                    <button
-                      key={count}
-                      onClick={() => void checkIn(reservation, count)}
-                      disabled={
-                        remaining < count || busyReservations.has(reservation.id)
-                      }
-                      className="grid min-h-14 place-items-center rounded-xl bg-[var(--panel-raised)] text-lg font-black disabled:opacity-25"
-                    >
-                      +{count}
-                    </button>
-                  ))}
-                  <button
-                    onClick={() => checkInCustom(reservation, remaining)}
-                    disabled={
-                      remaining === 0 || busyReservations.has(reservation.id)
-                    }
-                    className="min-h-14 rounded-xl bg-[var(--panel-raised)] px-2 text-sm font-black disabled:opacity-30"
-                  >
-                    Custom
-                  </button>
-                </div>
-                <button
-                  onClick={() => void checkIn(reservation, remaining)}
-                  disabled={
-                    remaining === 0 || busyReservations.has(reservation.id)
-                  }
-                  className="mt-2 min-h-14 w-full rounded-xl bg-[var(--accent)] px-3 text-sm font-black text-black disabled:opacity-30"
-                >
-                  All remaining ({remaining})
-                </button>
-              </article>
-            );
-          })}
-          {filtered.length === 0 ? (
+                reservation={reservation}
+                busy={busyReservations.has(reservation.id)}
+                onCheckIn={checkIn}
+                onCheckInCustom={checkInCustom}
+              />
+            ))
+          )}
+          {!loadingData && filtered.length === 0 ? (
             <p className="py-10 text-center text-sm text-[var(--muted)]">
               No matching active guests
             </p>
@@ -442,13 +495,14 @@ export default function DoorPage() {
             ))}
           </div>
         </section>
-        <a
-          className="mt-8 flex min-h-12 items-center justify-center gap-2 text-sm font-bold text-[var(--muted)]"
-          href="/api/emergency-export"
+        <button
+          type="button"
+          onClick={() => void handleEmergencyExport()}
+          className="mt-8 flex min-h-12 w-full items-center justify-center gap-2 text-sm font-bold text-[var(--muted)] hover:text-white"
         >
           <CloudUpload size={17} />
-          Emergency CSV
-        </a>
+          Emergency CSV {online ? "(Online)" : "(Offline Cache)"}
+        </button>
       </main>
 
       {walkInOpen && event ? (
@@ -490,7 +544,7 @@ function WalkInSheet({
       delta: Number(data.get("count")),
       walkInKind: kind,
       prId: kind === "pr" ? String(data.get("prId")) : undefined,
-      prConfirmed: kind === "pr" ? data.get("prConfirmed") === "on" : undefined,
+      prConfirmed: kind === "pr" ? true : undefined,
       note: String(data.get("note") ?? "") || undefined,
       recordedAt: new Date().toISOString(),
     });
@@ -546,28 +600,17 @@ function WalkInSheet({
             </select>
           </label>
           {kind === "pr" ? (
-            <>
-              <label className="block">
-                <span className="mb-2 block text-sm font-bold">PR</span>
-                <select className="field" name="prId" required>
-                  <option value="">Select PR</option>
-                  {prs.map((pr) => (
-                    <option value={pr.id} key={pr.id}>
-                      {pr.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="flex min-h-14 items-center gap-3 rounded-xl border border-[var(--line)] p-3 text-sm">
-                <input
-                  className="size-6 accent-[var(--accent)]"
-                  type="checkbox"
-                  name="prConfirmed"
-                  required
-                />
-                Guest personally identified this PR
-              </label>
-            </>
+            <label className="block">
+              <span className="mb-2 block text-sm font-bold">PR</span>
+              <select className="field" name="prId" required>
+                <option value="">Select PR</option>
+                {prs.map((pr) => (
+                  <option value={pr.id} key={pr.id}>
+                    {pr.name}
+                  </option>
+                ))}
+              </select>
+            </label>
           ) : null}
           <label className="block">
             <span className="mb-2 block text-sm font-bold">Note (optional)</span>

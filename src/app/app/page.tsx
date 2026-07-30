@@ -5,6 +5,7 @@ import {
   DoorOpen,
   UserPlus,
   UsersRound,
+  Calculator
 } from "lucide-react";
 import Link from "next/link";
 
@@ -35,6 +36,12 @@ const organizerActions = [
     label: "Door Check-In",
     detail: "Open entrance mode",
     icon: DoorOpen,
+  },
+  {
+    href: "/app/calculator",
+    label: "PR Calculator",
+    detail: "Cost projections & setup",
+    icon: Calculator,
   },
 ];
 

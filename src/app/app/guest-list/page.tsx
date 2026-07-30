@@ -25,12 +25,20 @@ export default function GuestListPage() {
     reservation: Reservation,
     action: "cancel" | "edit_details",
   ) {
+    if (action === "cancel") {
+      const confirmed = window.confirm(`Are you sure you want to cancel the reservation for "${reservation.guest_name}"?`);
+      if (!confirmed) return;
+    }
     const reason = window.prompt(
       action === "cancel"
-        ? "Required cancellation reason:"
-        : "Required reason for editing this reservation:",
+        ? "Required cancellation reason (at least 8 characters):"
+        : "Required reason for editing this reservation (at least 8 characters):",
     );
-    if (!reason || reason.trim().length < 8) return;
+    if (reason === null) return;
+    if (reason.trim().length < 8) {
+      window.alert("Action cancelled: A valid reason of at least 8 characters is required for audit history.");
+      return;
+    }
     let payload: Record<string, unknown> = {
       reservationId: reservation.id,
       action,
@@ -136,59 +144,67 @@ export default function GuestListPage() {
           />
         </label>
         <div className="divide-y divide-[var(--line)] border-y border-[var(--line)]">
-          {reservations.map((reservation) => (
-            <article className="py-4" key={reservation.id}>
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <h2 className="truncate text-lg font-black">
-                    {reservation.guest_name}
-                  </h2>
-                  <p className="mt-1 text-sm text-[var(--muted)]">
-                    {reservation.instagram_username ??
-                      reservation.phone ??
-                      "No contact shown"}
-                  </p>
+          {loading && reservations.length === 0 ? (
+            <div className="space-y-4 py-4">
+              <div className="h-20 w-full rounded-2xl bg-[var(--panel)] animate-pulse" />
+              <div className="h-20 w-full rounded-2xl bg-[var(--panel)] animate-pulse" />
+              <div className="h-20 w-full rounded-2xl bg-[var(--panel)] animate-pulse" />
+            </div>
+          ) : (
+            reservations.map((reservation) => (
+              <article className="py-4" key={reservation.id}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <h2 className="truncate text-lg font-black">
+                      {reservation.guest_name}
+                    </h2>
+                    <p className="mt-1 text-sm text-[var(--muted)]">
+                      {reservation.instagram_username ??
+                        reservation.phone ??
+                        "No contact shown"}
+                    </p>
+                  </div>
+                  <span className="rounded-full bg-[var(--panel)] px-2.5 py-1 text-xs font-black uppercase">
+                    {reservation.status.replaceAll("_", " ")}
+                  </span>
                 </div>
-                <span className="rounded-full bg-[var(--panel)] px-2.5 py-1 text-xs font-black uppercase">
-                  {reservation.status.replaceAll("_", " ")}
-                </span>
-              </div>
-              <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-sm">
-                <span>
-                  <b>{reservation.arrived_count}</b> / {reservation.expected_group_size} arrived
-                </span>
-                <span className="font-bold text-[var(--accent)]">
-                  {reservation.source === "pr"
-                    ? reservation.pr_name ?? "PR"
-                    : "Direct Wave-SKG"}
-                </span>
-                <span className="text-[var(--muted)]">
-                  {new Date(reservation.created_at).toLocaleString()}
-                </span>
-              </div>
-              {profile?.role !== "door" &&
-              !["cancelled", "duplicate", "voided", "no_show"].includes(
-                reservation.status,
-              ) ? (
-                <div className="mt-3 flex gap-2">
-                  <button
-                    className="flex min-h-11 items-center gap-2 rounded-xl bg-[var(--panel)] px-3 text-xs font-bold"
-                    onClick={() => void mutateReservation(reservation, "edit_details")}
-                  >
-                    <Pencil size={15} />
-                    Edit
-                  </button>
-                  <button
-                    className="flex min-h-11 items-center gap-2 rounded-xl bg-red-500/10 px-3 text-xs font-bold text-red-300"
-                    onClick={() => void mutateReservation(reservation, "cancel")}
-                  >
-                    <XCircle size={15} />
-                    Cancel
-                  </button>
+                <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-sm">
+                  <span>
+                    <b>{reservation.arrived_count}</b> / {reservation.expected_group_size} arrived
+                  </span>
+                  <span className="font-bold text-[var(--accent)]">
+                    {reservation.source === "pr"
+                      ? reservation.pr_name ?? "PR"
+                      : "Direct Wave-SKG"}
+                  </span>
+                  <span className="text-[var(--muted)]">
+                    {new Date(reservation.created_at).toLocaleString()}
+                  </span>
                 </div>
-              ) : null}
-            </article>
-          ))}
+                {profile?.role !== "door" &&
+                !["cancelled", "duplicate", "voided", "no_show"].includes(
+                  reservation.status,
+                ) ? (
+                  <div className="mt-3 flex gap-2">
+                    <button
+                      className="flex min-h-11 items-center gap-2 rounded-xl bg-[var(--panel)] px-3 text-xs font-bold"
+                      onClick={() => void mutateReservation(reservation, "edit_details")}
+                    >
+                      <Pencil size={15} />
+                      Edit
+                    </button>
+                    <button
+                      className="flex min-h-11 items-center gap-2 rounded-xl bg-red-500/10 px-3 text-xs font-bold text-red-300"
+                      onClick={() => void mutateReservation(reservation, "cancel")}
+                    >
+                      <XCircle size={15} />
+                      Cancel
+                    </button>
+                  </div>
+                ) : null}
+              </article>
+            ))
+          )}
           {!loading && reservations.length === 0 ? (
             <p className="py-12 text-center text-sm text-[var(--muted)]">
               No matching reservations
