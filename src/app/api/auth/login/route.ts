@@ -54,10 +54,10 @@ export async function POST(request: NextRequest) {
   });
   const profile = data.user
     ? await service
-        .from("profiles")
-        .select("is_active")
-        .eq("id", data.user.id)
-        .maybeSingle()
+      .from("profiles")
+      .select("is_active")
+      .eq("id", data.user.id)
+      .maybeSingle()
     : null;
   const success = !error && profile?.data?.is_active === true;
   await service.rpc("record_login_attempt", {
