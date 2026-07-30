@@ -74,7 +74,7 @@ const updateSchema = z.object({
   action: z.enum(["cancel", "void", "update_attribution", "edit_details"]),
   prId: z.string().uuid().nullable().optional(),
   source: z.enum(["direct", "pr"]).optional(),
-  reason: z.string().trim().min(8).max(500),
+  reason: z.string().trim().max(500).optional().nullable().default("Cancelled by operator"),
   guestName: z.string().trim().min(2).max(120).optional(),
   phone: z.string().trim().max(30).nullable().optional(),
   instagramUsername: z.string().trim().max(50).nullable().optional(),
@@ -87,7 +87,8 @@ export async function PATCH(request: Request) {
   if (!context) return unauthorized();
   if (context.event.status === "closed") return badRequest("Event is closed");
   const parsed = updateSchema.safeParse(await request.json().catch(() => null));
-  if (!parsed.success) return badRequest("A valid action and reason are required");
+  if (!parsed.success) return badRequest("A valid action is required");
+  const reasonToUse = parsed.data.reason || "Cancelled by operator";
   if (parsed.data.action === "edit_details") {
     if (
       !parsed.data.guestName ||
@@ -106,7 +107,7 @@ export async function PATCH(request: Request) {
         p_instagram_username: parsed.data.instagramUsername ?? null,
         p_expected_group_size: parsed.data.expectedGroupSize,
         p_note: parsed.data.note ?? null,
-        p_reason: parsed.data.reason,
+        p_reason: reasonToUse,
       },
     );
     if (error) return badRequest(error.message);
@@ -117,8 +118,46 @@ export async function PATCH(request: Request) {
     p_action: parsed.data.action,
     p_source: parsed.data.source ?? null,
     p_pr_id: parsed.data.prId ?? null,
-    p_reason: parsed.data.reason,
+    p_reason: reasonToUse,
   });
   if (error) return badRequest(error.message);
   return NextResponse.json(data);
+}
+
+export async function DELETE(request: Request) {
+  const context = await getRequestContext(["admin", "organizer"]);
+  if (!context) return unauthorized();
+  if (context.event.status === "closed") return badRequest("Event is closed");
+
+  const url = new URL(request.url);
+  const clearAll = url.searchParams.get("clear_all") === "true";
+  const reservationId = url.searchParams.get("id");
+
+  if (clearAll) {
+    const { error: ledgerErr } = await context.supabase
+      .from("checkin_ledger")
+      .delete()
+      .eq("event_id", context.event.id);
+
+    const { error } = await context.supabase
+      .from("reservations")
+      .delete()
+      .eq("event_id", context.event.id);
+
+    if (error || ledgerErr) return badRequest(error?.message || ledgerErr?.message || "Failed to clear reservations");
+    return NextResponse.json({ success: true, cleared: "all" });
+  }
+
+  if (reservationId) {
+    const { error } = await context.supabase
+      .from("reservations")
+      .delete()
+      .eq("id", reservationId)
+      .eq("event_id", context.event.id);
+
+    if (error) return badRequest(error.message);
+    return NextResponse.json({ success: true });
+  }
+
+  return badRequest("Specify reservation id or clear_all=true");
 }

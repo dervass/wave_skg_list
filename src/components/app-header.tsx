@@ -45,10 +45,10 @@ export function AppHeader({
           </p>
         </div>
         <span
-          className={`rounded-full px-2.5 py-1 text-[0.68rem] font-black uppercase tracking-wider ${
+          className={`rounded-full px-2.5 py-1 text-[0.68rem] font-bold uppercase tracking-wider border ${
             event.status === "closed"
-              ? "bg-red-500/15 text-red-300"
-              : "bg-emerald-500/15 text-emerald-300"
+              ? "bg-red-950/40 text-red-400 border-red-500/20"
+              : "bg-emerald-950/40 text-emerald-400 border-emerald-500/20"
           }`}
         >
           {event.status}

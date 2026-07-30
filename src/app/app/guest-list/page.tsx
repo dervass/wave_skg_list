@@ -5,6 +5,7 @@ import {
   Download,
   Pencil,
   SlidersHorizontal,
+  Trash2,
   XCircle,
 } from "lucide-react";
 import Link from "next/link";
@@ -20,24 +21,60 @@ export default function GuestListPage() {
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [loading, setLoading] = useState(true);
 
+  async function clearAllReservations() {
+    const confirm1 = window.confirm("Are you sure you want to DELETE ALL RESERVATIONS for this event?");
+    if (!confirm1) return;
+    const confirm2 = window.confirm("CONFIRM CLEAR ALL: Are you 100% sure you want to PERMANENTLY REMOVE ALL RESERVATIONS?");
+    if (!confirm2) return;
+
+    setLoading(true);
+    const response = await fetch("/api/reservations?clear_all=true", {
+      method: "DELETE",
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      window.alert(data.error ?? "Failed to clear reservations");
+    } else {
+      setReservations([]);
+    }
+    setLoading(false);
+  }
+
   async function mutateReservation(
     reservation: Reservation,
     action: "cancel" | "edit_details",
   ) {
     if (action === "cancel") {
-      const confirmed = window.confirm(`Are you sure you want to cancel the reservation for "${reservation.guest_name}"?`);
-      if (!confirmed) return;
+      const confirm1 = window.confirm(`Cancel reservation for "${reservation.guest_name}"?`);
+      if (!confirm1) return;
+      const confirm2 = window.confirm(`CONFIRM CANCELLATION: Are you 100% sure you want to cancel "${reservation.guest_name}"?`);
+      if (!confirm2) return;
+
+      const response = await fetch("/api/reservations", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          reservationId: reservation.id,
+          action: "cancel",
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) window.alert(data.error ?? "Cancellation rejected");
+      else {
+        const refreshed = await fetch(
+          `/api/reservations?q=${encodeURIComponent(query)}`,
+        ).then((result) => result.json());
+        setReservations(refreshed.reservations ?? []);
+      }
+      return;
     }
-    const reason = window.prompt(
-      action === "cancel"
-        ? "Required cancellation reason (at least 8 characters):"
-        : "Required reason for editing this reservation (at least 8 characters):",
-    );
-    if (reason === null) return;
-    if (reason.trim().length < 8) {
+
+    const reason = window.prompt("Required reason for editing this reservation (at least 8 characters):");
+    if (!reason || reason.trim().length < 8) {
       window.alert("Action cancelled: A valid reason of at least 8 characters is required for audit history.");
       return;
     }
+
     let payload: Record<string, unknown> = {
       reservationId: reservation.id,
       action,
@@ -127,6 +164,14 @@ export default function GuestListPage() {
               >
                 <Download size={20} />
               </a>
+              <button
+                onClick={clearAllReservations}
+                className="grid size-12 place-items-center rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors"
+                aria-label="Remove all reservations"
+                title="Remove all reservations (2-stage confirm)"
+              >
+                <Trash2 size={20} />
+              </button>
             </div>
           ) : null}
         </div>
