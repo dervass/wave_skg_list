@@ -1,6 +1,6 @@
 "use client";
 
-import { Download, LockKeyhole, RotateCcw } from "lucide-react";
+import { Download } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { PageFrame } from "@/components/page-frame";
@@ -126,28 +126,6 @@ export default function SettlementPage() {
                 ) : null}
               </div>
             </section>
-
-            <div className="mt-10">
-              {data.event_status === "closed" ? (
-                <button
-                  className="button-secondary w-full"
-                  disabled={pending}
-                  onClick={() => void eventAction("reopen")}
-                >
-                  <RotateCcw size={18} />
-                  Reopen event
-                </button>
-              ) : (
-                <button
-                  className="button-danger w-full"
-                  disabled={pending}
-                  onClick={() => void eventAction("close")}
-                >
-                  <LockKeyhole size={18} />
-                  Close event and save final snapshot
-                </button>
-              )}
-            </div>
           </>
         )}
       </main>

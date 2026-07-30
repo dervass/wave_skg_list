@@ -1,6 +1,6 @@
 "use client";
 
-import { KeyRound, Plus, Trash2, Check } from "lucide-react";
+import { KeyRound, Plus, Trash2, Check, LockKeyhole, RotateCcw } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { PageFrame } from "@/components/page-frame";
@@ -19,6 +19,8 @@ export default function AccountManagementPage() {
   const [myInstagram, setMyInstagram] = useState("");
   const [myPassword, setMyPassword] = useState("");
   const [savingSelf, setSavingSelf] = useState(false);
+  const [eventStatus, setEventStatus] = useState<string | null>(null);
+  const [eventPending, setEventPending] = useState(false);
 
   async function load() {
     const response = await fetch("/api/admin/accounts");
@@ -34,6 +36,40 @@ export default function AccountManagementPage() {
     } else {
       setError(data.error ?? "Access required");
     }
+
+    const setRes = await fetch("/api/settlement");
+    if (setRes.ok) {
+      const setData = await setRes.json();
+      setEventStatus(setData.event_status);
+    }
+  }
+
+  async function toggleEventAction(action: "close" | "reopen") {
+    const reason =
+      action === "reopen"
+        ? window.prompt("Required reason for reopening this event:")
+        : window.confirm(
+              "Close the event? Unchecked active reservations become no-shows.",
+            )
+          ? null
+          : undefined;
+    if (reason === undefined || (action === "reopen" && !reason)) return;
+    setEventPending(true);
+    setError("");
+    setSuccessMsg("");
+    const response = await fetch("/api/settlement", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action, reason }),
+    });
+    const result = await response.json();
+    if (!response.ok) {
+      setError(result.error ?? "Action failed");
+    } else {
+      setSuccessMsg(`Event successfully ${action === "close" ? "closed" : "reopened"}`);
+      await load();
+    }
+    setEventPending(false);
   }
 
   useEffect(() => {
@@ -223,8 +259,34 @@ export default function AccountManagementPage() {
             </button>
           </form>
         ) : (
-          /* --- Admin View: Create Accounts & Staff List --- */
+          /* --- Admin View: Event Controls, Create Accounts & Staff List --- */
           <>
+            <section className="my-7 rounded-2xl border border-red-500/20 bg-red-950/10 p-5">
+              <h2 className="text-lg font-black text-red-200 mb-1">Event Status Controls</h2>
+              <p className="text-xs text-[var(--muted)] mb-4">
+                Exclusive admin controls to close the active event or reopen a closed event.
+              </p>
+              {eventStatus === "closed" ? (
+                <button
+                  className="button-secondary w-full"
+                  disabled={eventPending}
+                  onClick={() => void toggleEventAction("reopen")}
+                >
+                  <RotateCcw size={18} />
+                  Reopen event
+                </button>
+              ) : (
+                <button
+                  className="button-danger w-full"
+                  disabled={eventPending}
+                  onClick={() => void toggleEventAction("close")}
+                >
+                  <LockKeyhole size={18} />
+                  Close event and save final snapshot
+                </button>
+              )}
+            </section>
+
             <form
               className="my-7 grid gap-3 rounded-2xl border border-[var(--line)] bg-[var(--panel)] p-4 sm:grid-cols-2"
               onSubmit={createAccount}
