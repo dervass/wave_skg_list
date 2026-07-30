@@ -1,6 +1,6 @@
 "use client";
 
-import { KeyRound, Plus, Trash2, Check, LockKeyhole, RotateCcw } from "lucide-react";
+import { Eye, EyeOff, KeyRound, Plus, Trash2, Check, LockKeyhole, RotateCcw } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { PageFrame } from "@/components/page-frame";
@@ -13,6 +13,11 @@ export default function AccountManagementPage() {
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [visiblePasswords, setVisiblePasswords] = useState<Record<string, boolean>>({});
+
+  function togglePasswordVisibility(id: string) {
+    setVisiblePasswords((prev) => ({ ...prev, [id]: !prev[id] }));
+  }
 
   // Organizer personal state
   const [myDisplayName, setMyDisplayName] = useState("");
@@ -214,6 +219,7 @@ export default function AccountManagementPage() {
           <form
             className="my-7 grid gap-4 rounded-2xl border border-[var(--line)] bg-[var(--panel)] p-5"
             onSubmit={updateSelf}
+            autoComplete="off"
           >
             <div>
               <label className="mb-1.5 block text-xs font-bold text-[var(--muted)] uppercase tracking-wider">
@@ -224,6 +230,7 @@ export default function AccountManagementPage() {
                 value={myDisplayName}
                 onChange={(e) => setMyDisplayName(e.target.value)}
                 placeholder="Your Name"
+                autoComplete="off"
                 required
               />
             </div>
@@ -237,6 +244,7 @@ export default function AccountManagementPage() {
                 value={myInstagram}
                 onChange={(e) => setMyInstagram(e.target.value)}
                 placeholder="@your_instagram"
+                autoComplete="off"
               />
             </div>
 
@@ -251,6 +259,7 @@ export default function AccountManagementPage() {
                 onChange={(e) => setMyPassword(e.target.value)}
                 placeholder="New password (4+ chars)"
                 minLength={4}
+                autoComplete="new-password"
               />
             </div>
 
@@ -261,6 +270,98 @@ export default function AccountManagementPage() {
         ) : (
           /* --- Admin View: Event Controls, Create Accounts & Staff List --- */
           <>
+            <form
+              className="my-7 grid gap-3 rounded-2xl border border-[var(--line)] bg-[var(--panel)] p-4 sm:grid-cols-2"
+              onSubmit={createAccount}
+              autoComplete="off"
+            >
+              <input
+                className="field"
+                name="displayName"
+                placeholder="Display Name (e.g. Alex Karas)"
+                autoComplete="off"
+                required
+              />
+              <input
+                className="field"
+                name="instagram"
+                placeholder="Instagram @handle (optional)"
+                autoComplete="off"
+              />
+              <input
+                className="field"
+                name="password"
+                type="password"
+                minLength={4}
+                placeholder="Password (4+ chars)"
+                autoComplete="new-password"
+                required
+              />
+              <select className="field" name="role" defaultValue="door">
+                <option value="door">Door staff</option>
+                <option value="organizer">Organizer</option>
+              </select>
+              <button className="button-primary sm:col-span-2">
+                <Plus size={18} />
+                Create Account
+              </button>
+            </form>
+
+            <div className="divide-y divide-[var(--line)] border-y border-[var(--line)]">
+              {accounts.map((account) => {
+                const isPasswordVisible = visiblePasswords[account.id] ?? false;
+                return (
+                  <article className="flex min-h-20 items-center gap-3 py-3" key={account.id}>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-black">{account.display_name}</p>
+                      <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--muted)] mt-0.5">
+                        <span className="capitalize">{account.role}</span>
+                      </div>
+                    </div>
+
+                    <button
+                      className="flex h-11 items-center gap-1.5 rounded-xl bg-[var(--panel)] px-3 text-xs font-bold cursor-pointer hover:bg-white/10 text-[var(--ink)]"
+                      onClick={() => togglePasswordVisibility(account.id)}
+                      aria-label={`Read password for ${account.display_name}`}
+                      title={isPasswordVisible ? "Hide password" : "Read password"}
+                    >
+                      {isPasswordVisible ? <EyeOff size={16} /> : <Eye size={16} />}
+                      <span className="font-mono text-xs">
+                        {isPasswordVisible
+                          ? (account.password || "(Not stored)")
+                          : "••••••••"}
+                      </span>
+                    </button>
+
+                    <button
+                      className="flex h-11 size-11 items-center justify-center rounded-xl bg-[var(--panel)] text-xs font-bold cursor-pointer hover:bg-white/10 text-[var(--ink)]"
+                      onClick={() => resetPassword(account)}
+                      aria-label={`Change password for ${account.display_name}`}
+                      title="Change user password"
+                    >
+                      <KeyRound size={16} />
+                    </button>
+
+                    {session?.profile?.id !== account.id ? (
+                      <button
+                        className={`flex h-11 items-center justify-center gap-1.5 rounded-xl px-3 text-xs font-bold transition-all cursor-pointer ${
+                          confirmDeleteId === account.id
+                            ? "bg-red-600 text-white animate-pulse shadow-lg shadow-red-500/30 scale-105"
+                            : "bg-red-500/10 text-red-400 hover:bg-red-500/20"
+                        }`}
+                        onClick={() => handleDeleteClick(account.id, () => void deleteAccount(account))}
+                        aria-label={`Delete ${account.display_name}`}
+                        title={confirmDeleteId === account.id ? "Click again to confirm delete" : "Delete account"}
+                      >
+                        <Trash2 size={17} />
+                        {confirmDeleteId === account.id && <span>Confirm?</span>}
+                      </button>
+                    ) : null}
+                  </article>
+                );
+              })}
+            </div>
+
             <section className="my-7 rounded-2xl border border-red-500/20 bg-red-950/10 p-5">
               <h2 className="text-lg font-black text-red-200 mb-1">Event Status Controls</h2>
               <p className="text-xs text-[var(--muted)] mb-4">
@@ -286,75 +387,6 @@ export default function AccountManagementPage() {
                 </button>
               )}
             </section>
-
-            <form
-              className="my-7 grid gap-3 rounded-2xl border border-[var(--line)] bg-[var(--panel)] p-4 sm:grid-cols-2"
-              onSubmit={createAccount}
-            >
-              <input className="field" name="displayName" placeholder="Display Name (e.g. Alex Karas)" required />
-              <input className="field" name="instagram" placeholder="Instagram @handle (optional)" />
-              <input
-                className="field"
-                name="password"
-                type="password"
-                minLength={4}
-                placeholder="Password (4+ chars)"
-                required
-              />
-              <select className="field" name="role" defaultValue="door">
-                <option value="door">Door staff</option>
-                <option value="organizer">Organizer</option>
-              </select>
-              <button className="button-primary sm:col-span-2">
-                <Plus size={18} />
-                Create Account
-              </button>
-            </form>
-
-            <div className="divide-y divide-[var(--line)] border-y border-[var(--line)]">
-              {accounts.map((account) => (
-                <article className="flex min-h-20 items-center gap-3 py-3" key={account.id}>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate font-black">{account.display_name}</p>
-                    <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--muted)] mt-0.5">
-                      <span>@{account.username}</span>
-                      <span>·</span>
-                      <span className="capitalize">{account.role}</span>
-                      {account.password ? (
-                        <span className="rounded bg-white/10 px-2 py-0.5 font-mono text-[11px] font-semibold text-[var(--accent)]">
-                          Pass: {account.password}
-                        </span>
-                      ) : null}
-                    </div>
-                  </div>
-                  <button
-                    className="flex h-11 items-center gap-1.5 rounded-xl bg-[var(--panel)] px-3 text-xs font-bold cursor-pointer hover:bg-white/10 text-[var(--ink)]"
-                    onClick={() => resetPassword(account)}
-                    aria-label={`Change password for ${account.display_name}`}
-                    title="Change user password"
-                  >
-                    <KeyRound size={16} />
-                    <span>Password</span>
-                  </button>
-
-                  {session?.profile?.id !== account.id ? (
-                    <button
-                      className={`flex h-11 items-center justify-center gap-1.5 rounded-xl px-3 text-xs font-bold transition-all cursor-pointer ${
-                        confirmDeleteId === account.id
-                          ? "bg-red-600 text-white animate-pulse shadow-lg shadow-red-500/30 scale-105"
-                          : "bg-red-500/10 text-red-400 hover:bg-red-500/20"
-                      }`}
-                      onClick={() => handleDeleteClick(account.id, () => void deleteAccount(account))}
-                      aria-label={`Delete ${account.display_name}`}
-                      title={confirmDeleteId === account.id ? "Click again to confirm delete" : "Delete account"}
-                    >
-                      <Trash2 size={17} />
-                      {confirmDeleteId === account.id && <span>Confirm?</span>}
-                    </button>
-                  ) : null}
-                </article>
-              ))}
-            </div>
           </>
         )}
       </main>

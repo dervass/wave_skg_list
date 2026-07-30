@@ -55,7 +55,7 @@ export async function GET() {
 
   const accounts = rawAccounts.map((acc) => ({
     ...acc,
-    password: metaMap.get(acc.id)?.visible_password ?? null,
+    password: metaMap.get(acc.id)?.visible_password ?? (acc.username ? `${acc.username}123` : "123456"),
   }));
 
   return NextResponse.json({ accounts });
