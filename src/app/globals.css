@@ -6,9 +6,10 @@
   --panel: #151514;
   --panel-raised: #1d1d1b;
   --line: #30302d;
-  --accent: #ff6b45;
-  --accent-strong: #ff8a68;
-  --success: #56d69b;
+  --accent: #7c3aed;
+  --accent-strong: #8b5cf6;
+  --accent-shadow: rgba(124, 58, 237, 0.2);
+  --success: #34d399;
   --warning: #f0c75e;
   --danger: #ff6464;
   --background: #0b0b0a;
@@ -28,7 +29,7 @@ body {
   margin: 0;
   min-height: 100svh;
   background:
-    radial-gradient(circle at 85% -10%, rgb(255 107 69 / 10%), transparent 34rem),
+    radial-gradient(circle at 85% -10%, rgba(124, 58, 237, 0.08), transparent 30rem),
     var(--background);
   color: var(--ink);
   font-family:
@@ -75,7 +76,7 @@ a {
 .field:focus {
   border-color: var(--accent);
   outline: none;
-  box-shadow: 0 0 0 3px rgb(255 107 69 / 14%);
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.2);
 }
 
 .button-primary,
@@ -92,12 +93,17 @@ a {
   font-weight: 800;
   transition:
     transform 120ms ease,
-    background-color 120ms ease;
+    background-color 120ms ease,
+    box-shadow 120ms ease;
 }
 
 .button-primary {
-  background: var(--accent);
-  color: #170b07;
+  background: #6d28d9;
+  color: #ffffff;
+}
+
+.button-primary:hover {
+  background: #7c3aed;
 }
 
 .button-secondary {
@@ -131,7 +137,11 @@ a {
   height: 0.55rem;
   border-radius: 999px;
   background: var(--success);
-  box-shadow: 0 0 0 4px rgb(86 214 155 / 12%);
+  box-shadow: 0 0 0 4px rgb(52 211 153 / 18%);
+}
+
+.money-text {
+  color: #34d399;
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -87,16 +87,18 @@ export default function SettlementPage() {
           <>
             <dl className="divide-y divide-[var(--line)] border-y border-[var(--line)]">
               {[
-                ["Eligible checked-in attendees", data.eligible_attendees],
-                ["PR-attributed attendees", data.pr_attendees],
-                ["Direct and organic attendees", data.direct_attendees],
-                ["Non-revenue attendees", data.non_revenue_attendees],
-                ["Expected from Sunset Bay", formatEuros(data.venue_payment_cents)],
-                ["Total owed to all PRs", formatEuros(data.total_pr_commission_cents)],
-              ].map(([label, value]) => (
-                <div className="flex items-center justify-between gap-4 py-4" key={label}>
+                ["Eligible checked-in attendees", data.eligible_attendees, false],
+                ["PR-attributed attendees", data.pr_attendees, false],
+                ["Direct and organic attendees", data.direct_attendees, false],
+                ["Non-revenue attendees", data.non_revenue_attendees, false],
+                ["Expected from Sunset Bay", formatEuros(data.venue_payment_cents), true],
+                ["Total owed to all PRs", formatEuros(data.total_pr_commission_cents), true],
+              ].map(([label, value, isMoney]) => (
+                <div className="flex items-center justify-between gap-4 py-4" key={String(label)}>
                   <dt className="text-sm text-[var(--muted)]">{label}</dt>
-                  <dd className="text-xl font-black tabular-nums">{value}</dd>
+                  <dd className={`text-xl font-black tabular-nums ${isMoney ? "text-emerald-400 font-mono" : ""}`}>
+                    {value}
+                  </dd>
                 </div>
               ))}
             </dl>
@@ -112,7 +114,7 @@ export default function SettlementPage() {
                         {line.attendees} eligible checked in
                       </p>
                     </div>
-                    <p className="text-lg font-black">
+                    <p className="text-lg font-black text-emerald-400 font-mono">
                       {formatEuros(line.amount_owed_cents)}
                     </p>
                   </div>

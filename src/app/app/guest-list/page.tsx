@@ -4,7 +4,6 @@ import {
   Clock3,
   Download,
   Pencil,
-  Search,
   SlidersHorizontal,
   XCircle,
 } from "lucide-react";
@@ -131,16 +130,12 @@ export default function GuestListPage() {
             </div>
           ) : null}
         </div>
-        <label className="relative mb-5 block">
-          <Search
-            className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[var(--muted)]"
-            size={21}
-          />
+        <label className="mb-5 block">
           <input
-            className="field pl-12"
+            className="field"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Name, full phone or @Instagram"
+            placeholder="Search by name, phone or @Instagram"
           />
         </label>
         <div className="divide-y divide-[var(--line)] border-y border-[var(--line)]">

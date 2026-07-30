@@ -1,6 +1,6 @@
 "use client";
 
-import { LockKeyhole, Waves } from "lucide-react";
+import { LockKeyhole } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -36,9 +36,9 @@ export default function LoginPage() {
   return (
     <main className="mx-auto flex min-h-svh w-full max-w-md flex-col justify-between px-5 py-8 sm:py-12">
       <div className="flex items-center gap-3">
-        <span className="grid size-11 place-items-center rounded-full bg-[var(--accent)] text-black">
-          <Waves aria-hidden="true" size={24} strokeWidth={2.5} />
-        </span>
+        <div className="grid size-12 place-items-center rounded-2xl bg-black border border-purple-500/30 p-1.5 shadow-lg shadow-purple-900/30">
+          <img src="/logo-inverted.png" alt="WAVE SKG" className="size-full object-contain" />
+        </div>
         <div>
           <p className="text-xl font-black tracking-[-0.03em]">WAVE-SKG</p>
           <p className="eyebrow">Guest list</p>

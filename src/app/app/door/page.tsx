@@ -5,7 +5,6 @@ import {
   CloudUpload,
   Plus,
   RefreshCw,
-  Search,
   UserRoundPlus,
   X,
 } from "lucide-react";
@@ -407,16 +406,12 @@ export default function DoorPage() {
       </div>
 
       <main className="safe-bottom mx-auto max-w-4xl px-4 py-5">
-        <label className="relative block">
-          <Search
-            className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[var(--muted)]"
-            size={25}
-          />
+        <div className="relative block">
           <input
-            className="field min-h-16 pl-14 pr-12 text-lg font-bold"
+            className="field min-h-16 pr-12 text-lg font-bold"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search guest…"
+            placeholder="Search guest name…"
             autoComplete="off"
           />
           {query ? (
@@ -428,7 +423,7 @@ export default function DoorPage() {
               <X size={20} />
             </button>
           ) : null}
-        </label>
+        </div>
 
         <button
           onClick={() => setWalkInOpen(true)}

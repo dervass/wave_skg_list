@@ -550,7 +550,7 @@ function SummaryRow({ label, value, tooltip }: { label: string, value: number, t
         {label}
         <InfoTooltip tooltip={tooltip} />
       </span>
-      <span className="font-bold text-lg">{money(value * 100)}</span>
+      <span className="font-bold text-lg text-emerald-400 font-mono">{money(value * 100)}</span>
     </div>
   );
 }

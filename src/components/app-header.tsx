@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, LogOut, Settings, Waves } from "lucide-react";
+import { ArrowLeft, LogOut, Settings } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
@@ -29,11 +29,7 @@ export function AppHeader({
   return (
     <header className="border-b border-[var(--line)] bg-[#0b0b0ae8] backdrop-blur-xl">
       <div className="mx-auto flex min-h-16 max-w-4xl items-center gap-3 px-4">
-        {isHome ? (
-          <span className="grid size-9 place-items-center rounded-full bg-[var(--accent)] text-black">
-            <Waves aria-hidden="true" size={20} strokeWidth={2.6} />
-          </span>
-        ) : (
+        {!isHome && (
           <Link
             href="/app"
             className="grid size-11 cursor-pointer place-items-center rounded-full bg-[var(--panel)] text-[var(--ink)] hover:bg-[var(--panel-raised)] transition-colors"
