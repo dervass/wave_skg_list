@@ -4,7 +4,6 @@ import {
   Clock3,
   Download,
   Pencil,
-  SlidersHorizontal,
   XCircle,
 } from "lucide-react";
 import Link from "next/link";
@@ -130,14 +129,6 @@ export default function GuestListPage() {
                 title="Attendance History & Logs"
               >
                 <Clock3 size={20} />
-              </Link>
-              <Link
-                href="/app/settlement"
-                className="grid size-12 place-items-center rounded-xl bg-[var(--panel)]"
-                aria-label="Settlement"
-                title="Event Settlement & Summary"
-              >
-                <SlidersHorizontal size={20} />
               </Link>
               <a
                 href="/api/export"
