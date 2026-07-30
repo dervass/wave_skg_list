@@ -8,32 +8,39 @@ export async function GET() {
     const service = createServiceRoleClient();
 
     const updates = [
-      { email: "waveadmin@auth.wave-skg.internal", password: "wave1234" },
-      { email: "vagg@auth.wave-skg.internal", password: "vag12345" },
+      {
+        id: "c900740c-da1f-4de0-b8e6-f1b3deb0d16e",
+        username: "waveadmin",
+        password: "wave1234",
+      },
+      {
+        id: "58c10f8e-77f9-49ce-ad64-030a750d9b4c",
+        username: "vagg",
+        password: "vag12345",
+      },
     ];
 
     const results = [];
 
     for (const u of updates) {
-      // Find user by email
-      const { data: list } = await service.auth.admin.listUsers({ perPage: 1000 });
-      const user = list?.users?.find((usr) => usr.email === u.email);
+      const { data: userData, error: fetchError } = await service.auth.admin.getUserById(u.id);
 
-      if (!user) {
-        results.push({ email: u.email, status: "not found" });
+      if (fetchError || !userData?.user) {
+        results.push({ username: u.username, status: `fetch error: ${fetchError?.message ?? "not found"}` });
         continue;
       }
 
-      const { error } = await service.auth.admin.updateUserById(user.id, {
+      const { error } = await service.auth.admin.updateUserById(u.id, {
         password: u.password,
         user_metadata: {
-          ...user.user_metadata,
+          ...userData.user.user_metadata,
           visible_password: u.password,
         },
       });
 
       results.push({
-        email: u.email,
+        username: u.username,
+        email: userData.user.email,
         status: error ? `error: ${error.message}` : "password reset OK",
       });
     }
