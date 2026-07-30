@@ -9,16 +9,32 @@ import {
 } from "@/lib/supabase/request";
 
 const createSchema = z.object({
-  username: z.string().trim().min(2, "Username must be at least 2 characters").max(50),
   displayName: z.string().trim().min(2, "Display name must be at least 2 characters").max(80),
+  instagram: z.string().trim().max(80).optional().nullable(),
   password: z.string().min(4, "Password must be at least 4 characters").max(128),
   role: z.enum(["organizer", "door", "admin"]),
 });
 
+function slugifyName(name: string): string {
+  const clean = name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_+|_+$/g, "");
+  return clean.length >= 2 ? clean : `user_${Math.random().toString(36).substring(2, 7)}`;
+}
+
 export async function GET() {
-  const context = await getRequestContext(["admin"]);
+  const context = await getRequestContext(["admin", "organizer"]);
   if (!context) return unauthorized();
   const service = createServiceRoleClient();
+
+  if (context.profile.role === "organizer") {
+    return NextResponse.json({ accounts: [context.profile] });
+  }
+
   const { data, error } = await service
     .from("event_assignments")
     .select("profiles(id,username,display_name,role,is_active)")
@@ -33,7 +49,8 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const context = await getRequestContext(["admin"]);
-  if (!context) return unauthorized();
+  if (!context || context.profile.role !== "admin") return unauthorized();
+
   const body = await request.json().catch(() => null);
   const parsed = createSchema.safeParse(body);
   if (!parsed.success) {
@@ -41,14 +58,32 @@ export async function POST(request: Request) {
     return badRequest(issue);
   }
   const service = createServiceRoleClient();
-  const username = parsed.data.username.trim().toLowerCase().replace(/\s+/g, "_");
+  
+  // Auto-generate username from Display Name
+  const baseUsername = slugifyName(parsed.data.displayName);
+  let username = baseUsername;
+  let counter = 1;
+  while (true) {
+    const { data: existing } = await service
+      .from("profiles")
+      .select("id")
+      .eq("username", username)
+      .maybeSingle();
+    if (!existing) break;
+    username = `${baseUsername}_${counter++}`;
+  }
+
   const { data, error } = await service.auth.admin.createUser({
     email: `${username}@auth.wave-skg.internal`,
     password: parsed.data.password,
     email_confirm: true,
-    user_metadata: { username },
+    user_metadata: { 
+      username,
+      instagram: parsed.data.instagram?.replace(/^@/, "") ?? null 
+    },
   });
-  if (error || !data.user) return badRequest(error?.message ?? "Unable to create account in Auth");
+  if (error || !data.user) return badRequest(error?.message ?? "Unable to create user account");
+
   const { error: profileError } = await service.from("profiles").insert({
     id: data.user.id,
     username,
@@ -69,45 +104,63 @@ export async function POST(request: Request) {
 
 const updateSchema = z.object({
   userId: z.string().uuid(),
-  active: z.boolean().optional(),
-  newPassword: z.string().min(8).max(128).optional(),
+  displayName: z.string().trim().min(2).max(80).optional(),
+  instagram: z.string().trim().max(80).optional().nullable(),
+  newPassword: z.string().min(4).max(128).optional(),
 });
 
 export async function PATCH(request: Request) {
-  const context = await getRequestContext(["admin"]);
+  const context = await getRequestContext(["admin", "organizer"]);
   if (!context) return unauthorized();
-  const parsed = updateSchema.safeParse(await request.json().catch(() => null));
-  if (!parsed.success) return badRequest("Invalid account update");
+
+  const body = await request.json().catch(() => null);
+  const parsed = updateSchema.safeParse(body);
+  if (!parsed.success) return badRequest("Invalid update payload");
+
+  // Non-admin can only update their own account
+  if (context.profile.role !== "admin" && parsed.data.userId !== context.profile.id) {
+    return unauthorized();
+  }
+
   const service = createServiceRoleClient();
-  if (parsed.data.active != null) {
+
+  if (parsed.data.displayName) {
     await service
       .from("profiles")
-      .update({ is_active: parsed.data.active })
+      .update({ display_name: parsed.data.displayName })
       .eq("id", parsed.data.userId);
-    await service.auth.admin.updateUserById(parsed.data.userId, {
-      ban_duration: parsed.data.active ? "none" : "876000h",
-    });
   }
+
   if (parsed.data.newPassword) {
     const { error } = await service.auth.admin.updateUserById(parsed.data.userId, {
       password: parsed.data.newPassword,
     });
     if (error) return badRequest(error.message);
   }
+
+  if (parsed.data.instagram !== undefined) {
+    const cleanIg = parsed.data.instagram?.replace(/^@/, "").trim() || null;
+    await service.auth.admin.updateUserById(parsed.data.userId, {
+      user_metadata: { instagram: cleanIg }
+    });
+  }
+
   return NextResponse.json({ ok: true });
 }
 
 export async function DELETE(request: Request) {
   const context = await getRequestContext(["admin"]);
-  if (!context) return unauthorized();
+  if (!context || context.profile.role !== "admin") return unauthorized();
+
   const { userId } = await request.json().catch(() => ({}));
   if (!userId) return badRequest("User ID is required");
-  if (userId === context.profile.id) return badRequest("Cannot delete your own admin account");
+  if (userId === context.profile.id) return badRequest("Cannot delete your own account");
 
   const service = createServiceRoleClient();
   await service.from("event_assignments").delete().eq("user_id", userId);
   await service.from("profiles").delete().eq("id", userId);
-  await service.auth.admin.deleteUser(userId);
+  const { error } = await service.auth.admin.deleteUser(userId);
+  if (error) return badRequest(error.message);
 
   return NextResponse.json({ ok: true });
 }

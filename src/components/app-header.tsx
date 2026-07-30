@@ -57,11 +57,12 @@ export function AppHeader({
         >
           {event.status}
         </span>
-        {profile.role === "admin" ? (
+        {profile.role === "admin" || profile.role === "organizer" ? (
           <Link
             href="/app/admin/accounts"
             className="grid size-11 cursor-pointer place-items-center rounded-full text-[var(--muted)] hover:bg-[var(--panel)] hover:text-[var(--ink)] transition-colors"
-            aria-label="Manage staff accounts"
+            aria-label="Settings"
+            title="Settings & Account"
           >
             <Settings aria-hidden="true" size={19} />
           </Link>

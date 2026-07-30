@@ -1,39 +1,59 @@
 "use client";
 
-import { KeyRound, Plus, Trash2 } from "lucide-react";
+import { KeyRound, Plus, Trash2, User, Instagram, Lock, Check } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { PageFrame } from "@/components/page-frame";
+import { useAppSession } from "@/lib/client/session";
 import type { Profile } from "@/lib/domain/types";
 
 export default function AccountManagementPage() {
+  const session = useAppSession();
   const [accounts, setAccounts] = useState<Profile[]>([]);
   const [error, setError] = useState("");
+  const [successMsg, setSuccessMsg] = useState("");
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+
+  // Organizer personal state
+  const [myDisplayName, setMyDisplayName] = useState("");
+  const [myInstagram, setMyInstagram] = useState("");
+  const [myPassword, setMyPassword] = useState("");
+  const [savingSelf, setSavingSelf] = useState(false);
 
   async function load() {
     const response = await fetch("/api/admin/accounts");
     const data = await response.json();
-    if (response.ok) setAccounts(data.accounts ?? []);
-    else setError(data.error ?? "Administrator access required");
+    if (response.ok) {
+      const accList = data.accounts ?? [];
+      setAccounts(accList);
+      if (session?.profile) {
+        const userProfile = session.profile;
+        const me = accList.find((a: Profile) => a.id === userProfile.id) || userProfile;
+        setMyDisplayName(me.display_name || "");
+      }
+    } else {
+      setError(data.error ?? "Access required");
+    }
   }
 
   useEffect(() => {
     const timer = window.setTimeout(() => void load(), 0);
     return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function createAccount(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
+    setSuccessMsg("");
     const form = event.currentTarget;
     const data = new FormData(form);
     const response = await fetch("/api/admin/accounts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        username: data.get("username"),
         displayName: data.get("displayName"),
+        instagram: data.get("instagram"),
         password: data.get("password"),
         role: data.get("role"),
       }),
@@ -42,13 +62,46 @@ export default function AccountManagementPage() {
     if (!response.ok) setError(result.error ?? "Unable to create account");
     else {
       form.reset();
+      setSuccessMsg("Account created successfully!");
       await load();
     }
   }
 
+  async function updateSelf(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!session?.profile) return;
+    setError("");
+    setSuccessMsg("");
+    setSavingSelf(true);
+
+    const payload: { userId: string; displayName?: string; instagram?: string; newPassword?: string } = {
+      userId: session.profile.id,
+      displayName: myDisplayName,
+      instagram: myInstagram,
+    };
+    if (myPassword.trim()) {
+      payload.newPassword = myPassword;
+    }
+
+    const response = await fetch("/api/admin/accounts", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      setError(data.error ?? "Unable to update account settings");
+    } else {
+      setSuccessMsg("Account settings updated successfully!");
+      setMyPassword("");
+      await load();
+    }
+    setSavingSelf(false);
+  }
+
   async function updateAccount(
     account: Profile,
-    update: { active?: boolean; newPassword?: string },
+    update: { newPassword?: string },
   ) {
     const response = await fetch("/api/admin/accounts", {
       method: "PATCH",
@@ -73,7 +126,7 @@ export default function AccountManagementPage() {
 
   function resetPassword(account: Profile) {
     const password = window.prompt(
-      `New temporary password for ${account.username} (8+ characters):`,
+      `New password for ${account.display_name} (4+ characters):`,
     );
     if (password) void updateAccount(account, { newPassword: password });
   }
@@ -90,76 +143,161 @@ export default function AccountManagementPage() {
     }
   };
 
+  const isOrganizer = session?.profile?.role === "organizer";
+
   return (
     <PageFrame>
       <main className="safe-bottom mx-auto max-w-3xl px-4 py-7">
-        <p className="eyebrow mb-2">Main administrator only</p>
-        <h1 className="text-3xl font-black tracking-[-0.04em]">Staff accounts</h1>
-        <p className="mt-2 text-sm text-[var(--muted)]">
-          PRs and guests never receive accounts.
+        <p className="eyebrow mb-2">
+          {isOrganizer ? "Personal Account" : "Main administrator"}
         </p>
+        <h1 className="text-3xl font-black tracking-[-0.04em]">
+          {isOrganizer ? "Account Settings" : "Staff Accounts & Settings"}
+        </h1>
+        <p className="mt-2 text-sm text-[var(--muted)]">
+          {isOrganizer
+            ? "Manage your password and profile settings."
+            : "Create staff accounts and manage organizer access."}
+        </p>
+
         {error ? (
           <p className="mt-4 rounded-xl bg-red-500/10 p-3 text-sm text-red-300">
             {error}
           </p>
         ) : null}
-        <form
-          className="my-7 grid gap-3 rounded-2xl border border-[var(--line)] bg-[var(--panel)] p-4 sm:grid-cols-2"
-          onSubmit={createAccount}
-        >
-          <input className="field" name="username" placeholder="Username" required />
-          <input className="field" name="displayName" placeholder="Display name" required />
-          <input
-            className="field"
-            name="password"
-            type="password"
-            minLength={4}
-            placeholder="Temporary password (4+ chars)"
-            required
-          />
-          <select className="field" name="role" defaultValue="door">
-            <option value="door">Door staff</option>
-            <option value="organizer">Organizer</option>
-          </select>
-          <button className="button-primary sm:col-span-2">
-            <Plus size={18} />
-            Create account
-          </button>
-        </form>
-        <div className="divide-y divide-[var(--line)] border-y border-[var(--line)]">
-          {accounts.map((account) => (
-            <article className="flex min-h-20 items-center gap-3 py-3" key={account.id}>
-              <div className="min-w-0 flex-1">
-                <p className="truncate font-black">{account.display_name}</p>
-                <p className="text-xs text-[var(--muted)]">
-                  @{account.username} · <span className="capitalize">{account.role}</span>
-                </p>
-              </div>
-              <button
-                className="grid size-11 place-items-center rounded-xl bg-[var(--panel)] cursor-pointer hover:bg-white/10"
-                onClick={() => resetPassword(account)}
-                aria-label={`Reset password for ${account.username}`}
-                title="Reset password"
-              >
-                <KeyRound size={17} />
-              </button>
 
-              <button
-                className={`flex h-11 items-center justify-center gap-1.5 rounded-xl px-3 text-xs font-bold transition-all cursor-pointer ${
-                  confirmDeleteId === account.id
-                    ? "bg-red-600 text-white animate-pulse shadow-lg shadow-red-500/30 scale-105"
-                    : "bg-red-500/10 text-red-400 hover:bg-red-500/20"
-                }`}
-                onClick={() => handleDeleteClick(account.id, () => void deleteAccount(account))}
-                aria-label={`Delete ${account.username}`}
-                title={confirmDeleteId === account.id ? "Click again to confirm delete" : "Delete account"}
-              >
-                <Trash2 size={17} />
-                {confirmDeleteId === account.id && <span>Confirm?</span>}
+        {successMsg ? (
+          <p className="mt-4 rounded-xl bg-emerald-500/10 p-3 text-sm text-emerald-300 flex items-center gap-2">
+            <Check size={18} />
+            {successMsg}
+          </p>
+        ) : null}
+
+        {/* --- Organizer Self-Service Form --- */}
+        {isOrganizer ? (
+          <form
+            className="my-7 grid gap-4 rounded-2xl border border-[var(--line)] bg-[var(--panel)] p-5"
+            onSubmit={updateSelf}
+          >
+            <div>
+              <label className="mb-1.5 block text-xs font-bold text-[var(--muted)] uppercase tracking-wider">
+                Display Name
+              </label>
+              <div className="relative">
+                <input
+                  className="field pl-10"
+                  value={myDisplayName}
+                  onChange={(e) => setMyDisplayName(e.target.value)}
+                  placeholder="Your Name"
+                  required
+                />
+                <User className="absolute left-3 top-3.5 text-[var(--muted)]" size={17} />
+              </div>
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-xs font-bold text-[var(--muted)] uppercase tracking-wider">
+                Instagram (@handle)
+              </label>
+              <div className="relative">
+                <input
+                  className="field pl-10"
+                  value={myInstagram}
+                  onChange={(e) => setMyInstagram(e.target.value)}
+                  placeholder="@your_instagram"
+                />
+                <Instagram className="absolute left-3 top-3.5 text-[var(--muted)]" size={17} />
+              </div>
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-xs font-bold text-[var(--muted)] uppercase tracking-wider">
+                Change Password (leave blank to keep current)
+              </label>
+              <div className="relative">
+                <input
+                  className="field pl-10"
+                  type="password"
+                  value={myPassword}
+                  onChange={(e) => setMyPassword(e.target.value)}
+                  placeholder="New password (4+ chars)"
+                  minLength={4}
+                />
+                <Lock className="absolute left-3 top-3.5 text-[var(--muted)]" size={17} />
+              </div>
+            </div>
+
+            <button className="button-primary mt-2" disabled={savingSelf}>
+              <Check size={18} />
+              {savingSelf ? "Saving..." : "Save Settings"}
+            </button>
+          </form>
+        ) : (
+          /* --- Admin View: Create Accounts & Staff List --- */
+          <>
+            <form
+              className="my-7 grid gap-3 rounded-2xl border border-[var(--line)] bg-[var(--panel)] p-4 sm:grid-cols-2"
+              onSubmit={createAccount}
+            >
+              <input className="field" name="displayName" placeholder="Display Name (e.g. Alex Karas)" required />
+              <input className="field" name="instagram" placeholder="Instagram @handle (optional)" />
+              <input
+                className="field"
+                name="password"
+                type="password"
+                minLength={4}
+                placeholder="Password (4+ chars)"
+                required
+              />
+              <select className="field" name="role" defaultValue="door">
+                <option value="door">Door staff</option>
+                <option value="organizer">Organizer</option>
+              </select>
+              <button className="button-primary sm:col-span-2">
+                <Plus size={18} />
+                Create Account
               </button>
-            </article>
-          ))}
-        </div>
+            </form>
+
+            <div className="divide-y divide-[var(--line)] border-y border-[var(--line)]">
+              {accounts.map((account) => (
+                <article className="flex min-h-20 items-center gap-3 py-3" key={account.id}>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-black">{account.display_name}</p>
+                    <p className="text-xs text-[var(--muted)]">
+                      @{account.username} · <span className="capitalize">{account.role}</span>
+                    </p>
+                  </div>
+                  <button
+                    className="flex h-11 items-center gap-1.5 rounded-xl bg-[var(--panel)] px-3 text-xs font-bold cursor-pointer hover:bg-white/10 text-[var(--ink)]"
+                    onClick={() => resetPassword(account)}
+                    aria-label={`Change password for ${account.display_name}`}
+                    title="Change user password"
+                  >
+                    <KeyRound size={16} />
+                    <span>Password</span>
+                  </button>
+
+                  {session?.profile?.id !== account.id ? (
+                    <button
+                      className={`flex h-11 items-center justify-center gap-1.5 rounded-xl px-3 text-xs font-bold transition-all cursor-pointer ${
+                        confirmDeleteId === account.id
+                          ? "bg-red-600 text-white animate-pulse shadow-lg shadow-red-500/30 scale-105"
+                          : "bg-red-500/10 text-red-400 hover:bg-red-500/20"
+                      }`}
+                      onClick={() => handleDeleteClick(account.id, () => void deleteAccount(account))}
+                      aria-label={`Delete ${account.display_name}`}
+                      title={confirmDeleteId === account.id ? "Click again to confirm delete" : "Delete account"}
+                    >
+                      <Trash2 size={17} />
+                      {confirmDeleteId === account.id && <span>Confirm?</span>}
+                    </button>
+                  ) : null}
+                </article>
+              ))}
+            </div>
+          </>
+        )}
       </main>
     </PageFrame>
   );
