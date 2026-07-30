@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { PageFrame } from "@/components/page-frame";
-import { Plus, X, RefreshCcw, Save, Calculator, Settings, CheckSquare } from "lucide-react";
+import { Plus, X, RefreshCcw, Save, Calculator, Settings, CheckSquare, AlertTriangle } from "lucide-react";
 import { useAppSession } from "@/lib/client/session";
 
 // Utilities
@@ -380,6 +380,12 @@ export default function CalculatorPage() {
                   const venueTotal = projGuests * projVenueRate;
                   const net = venueTotal - prTotal - projFixedCosts;
 
+                  const netMarginPerGuest = projVenueRate - (projPrPercent / 100) * projPrRate;
+                  const additionalGuestsNeeded = netMarginPerGuest > 0 && net < 0
+                    ? Math.ceil(Math.abs(net) / netMarginPerGuest)
+                    : 0;
+                  const breakEvenGuestsTotal = projGuests + additionalGuestsNeeded;
+
                   return (
                     <div className="space-y-4">
                       <div className="grid grid-cols-2 gap-3">
@@ -398,6 +404,24 @@ export default function CalculatorPage() {
                           </div>
                           <span>{money(net * 100)}</span>
                         </div>
+
+                        {net < 0 && (
+                          <div className="mt-3.5 rounded-xl border border-red-500/30 bg-red-500/10 p-3.5 text-xs text-red-200 animate-in fade-in slide-in-from-top-1">
+                            <div className="flex items-center gap-1.5 text-red-400 font-extrabold text-sm mb-1">
+                              <AlertTriangle size={16} />
+                              <span>Break-Even Target</span>
+                            </div>
+                            {netMarginPerGuest > 0 ? (
+                              <p className="leading-relaxed font-medium">
+                                You need <span className="font-black text-white text-sm underline underline-offset-2">{whole.format(additionalGuestsNeeded)} more guests</span> ({whole.format(breakEvenGuestsTotal)} total) to reach break-even.
+                              </p>
+                            ) : (
+                              <p className="leading-relaxed font-medium">
+                                Unable to break even with current rates: PR payout per guest exceeds Venue payout.
+                              </p>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                   );
