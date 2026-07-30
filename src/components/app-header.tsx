@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { ArrowLeft, LogOut, Settings } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -19,6 +20,51 @@ export function AppHeader({
   const router = useRouter();
   const isHome = pathname === "/app";
 
+  const [isOnline, setIsOnline] = useState(true);
+  const [isDbOnline, setIsDbOnline] = useState(true);
+
+  useEffect(() => {
+    setIsOnline(typeof navigator !== "undefined" ? navigator.onLine : true);
+
+    const handleOnline = () => {
+      setIsOnline(true);
+      void checkDbConnection();
+    };
+    const handleOffline = () => {
+      setIsOnline(false);
+      setIsDbOnline(false);
+    };
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+
+    async function checkDbConnection() {
+      if (typeof navigator !== "undefined" && !navigator.onLine) {
+        setIsDbOnline(false);
+        return;
+      }
+      try {
+        const res = await fetch("/api/session", {
+          method: "GET",
+          cache: "no-store",
+          headers: { "Cache-Control": "no-cache" },
+        });
+        setIsDbOnline(res.ok);
+      } catch {
+        setIsDbOnline(false);
+      }
+    }
+
+    void checkDbConnection();
+    const interval = setInterval(() => void checkDbConnection(), 10000);
+
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+      clearInterval(interval);
+    };
+  }, []);
+
   async function logout() {
     clearSessionCache();
     await fetch("/api/auth/logout", { method: "POST" });
@@ -28,7 +74,7 @@ export function AppHeader({
 
   return (
     <header className="border-b border-[var(--line)] bg-[#0b0b0ae8] backdrop-blur-xl">
-      <div className="mx-auto flex min-h-16 max-w-4xl items-center gap-3 px-4">
+      <div className="mx-auto flex min-h-16 max-w-4xl items-center gap-2.5 px-4">
         {!isHome && (
           <Link
             href="/app"
@@ -44,15 +90,41 @@ export function AppHeader({
             {event.venue_name} · {profile.display_name}
           </p>
         </div>
-        <span
-          className={`rounded-full px-2.5 py-1 text-[0.68rem] font-bold uppercase tracking-wider border ${
-            event.status === "closed"
-              ? "bg-red-950/40 text-red-400 border-red-500/20"
-              : "bg-emerald-950/40 text-emerald-400 border-emerald-500/20"
-          }`}
-        >
-          {event.status}
-        </span>
+
+        {/* Live Network & Database Status Badges */}
+        <div className="flex items-center gap-1.5 text-[0.65rem] font-bold uppercase tracking-wider">
+          <span
+            className={`flex items-center gap-1 rounded-full px-2 py-0.5 border transition-colors ${
+              isOnline
+                ? "bg-emerald-950/40 text-emerald-400 border-emerald-500/20"
+                : "bg-red-950/40 text-red-400 border-red-500/20"
+            }`}
+            title={isOnline ? "Internet Connected" : "No Internet Connection"}
+          >
+            <span
+              className={`size-1.5 rounded-full ${
+                isOnline ? "bg-emerald-400 animate-pulse" : "bg-red-400"
+              }`}
+            />
+            <span className="hidden sm:inline">Net</span> {isOnline ? "Online" : "Offline"}
+          </span>
+
+          <span
+            className={`flex items-center gap-1 rounded-full px-2 py-0.5 border transition-colors ${
+              isDbOnline
+                ? "bg-emerald-950/40 text-emerald-400 border-emerald-500/20"
+                : "bg-red-950/40 text-red-400 border-red-500/20"
+            }`}
+            title={isDbOnline ? "Database Connection Active" : "Database Communication Failure"}
+          >
+            <span
+              className={`size-1.5 rounded-full ${
+                isDbOnline ? "bg-emerald-400 animate-pulse" : "bg-red-400"
+              }`}
+            />
+            <span className="hidden sm:inline">DB</span> {isDbOnline ? "Online" : "Offline"}
+          </span>
+        </div>
         {profile.role === "admin" || profile.role === "organizer" ? (
           <Link
             href="/app/admin/accounts"

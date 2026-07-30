@@ -127,6 +127,7 @@ export default function GuestListPage() {
                 href="/app/history"
                 className="grid size-12 place-items-center rounded-xl bg-[var(--panel)]"
                 aria-label="Attendance history and corrections"
+                title="Attendance History & Logs"
               >
                 <Clock3 size={20} />
               </Link>
@@ -134,6 +135,7 @@ export default function GuestListPage() {
                 href="/app/settlement"
                 className="grid size-12 place-items-center rounded-xl bg-[var(--panel)]"
                 aria-label="Settlement"
+                title="Event Settlement & Summary"
               >
                 <SlidersHorizontal size={20} />
               </Link>
@@ -141,6 +143,7 @@ export default function GuestListPage() {
                 href="/api/export"
                 className="grid size-12 place-items-center rounded-xl bg-[var(--panel)]"
                 aria-label="Export event CSV"
+                title="Export Guest List (CSV)"
               >
                 <Download size={20} />
               </a>
