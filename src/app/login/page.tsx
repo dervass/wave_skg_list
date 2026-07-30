@@ -23,7 +23,11 @@ export default function LoginPage() {
         trusted: form.get("trusted") === "on",
       }),
     });
-    const data = await response.json();
+    const text = await response.text();
+    let data: { error?: string } = {};
+    try {
+      if (text) data = JSON.parse(text);
+    } catch {}
     if (!response.ok) {
       setError(data.error ?? "Unable to sign in");
       setPending(false);

@@ -279,8 +279,12 @@ export default function DoorPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(operation),
         });
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error ?? "Check-in rejected");
+        const text = await response.text();
+        let data: Record<string, unknown> = {};
+        try {
+          if (text) data = JSON.parse(text);
+        } catch {}
+        if (!response.ok) throw new Error((data.error as string) ?? "Check-in rejected");
       } catch (caught) {
         if (!navigator.onLine || caught instanceof TypeError) {
           await queueOperation(operation);

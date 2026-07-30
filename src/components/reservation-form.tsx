@@ -25,8 +25,13 @@ export function ReservationForm({
   useEffect(() => {
     if (initialSource !== "pr") return;
     fetch("/api/prs")
-      .then((response) => response.json())
-      .then((data) => setPrs(data.prs ?? []));
+      .then(async (response) => {
+        if (!response.ok) return { prs: [] };
+        const text = await response.text();
+        return text ? JSON.parse(text) : { prs: [] };
+      })
+      .then((data) => setPrs(data.prs ?? []))
+      .catch(() => setPrs([]));
   }, [initialSource]);
 
   async function create(payload: Record<string, unknown>) {
@@ -35,12 +40,16 @@ export function ReservationForm({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
-    const data = await response.json();
+    const text = await response.text();
+    let data: Record<string, unknown> = {};
+    try {
+      if (text) data = JSON.parse(text);
+    } catch {}
     if (response.status === 409) {
       setDuplicate({ ...data, payload });
       return false;
     }
-    if (!response.ok) throw new Error(data.error ?? "Unable to save");
+    if (!response.ok) throw new Error((data.error as string) ?? "Unable to save");
     return true;
   }
 

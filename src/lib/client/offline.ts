@@ -137,7 +137,12 @@ export async function syncOutbox(): Promise<{
     body: JSON.stringify({ operations }),
   });
   if (!response.ok) throw new Error("Sync unavailable");
-  const { results } = await response.json();
+  const text = await response.text();
+  let data: { results?: unknown[] } = {};
+  try {
+    if (text) data = JSON.parse(text);
+  } catch {}
+  const results = data.results ?? [];
   const transaction = db.transaction("outbox", "readwrite");
   let synced = 0;
   let conflicts = 0;

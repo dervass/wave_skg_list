@@ -37,13 +37,21 @@ export default function GuestListPage() {
           action: "cancel",
         }),
       });
-      const data = await response.json();
-      if (!response.ok) window.alert(data.error ?? "Cancellation rejected");
+      const text = await response.text();
+      let data: Record<string, unknown> = {};
+      try {
+        if (text) data = JSON.parse(text);
+      } catch {}
+      if (!response.ok) window.alert((data.error as string) ?? "Cancellation rejected");
       else {
-        const refreshed = await fetch(
+        const refreshedText = await fetch(
           `/api/reservations?q=${encodeURIComponent(query)}`,
-        ).then((result) => result.json());
-        setReservations(refreshed.reservations ?? []);
+        ).then((result) => result.text()).catch(() => "");
+        let refreshed: { reservations?: unknown[] } = {};
+        try {
+          if (refreshedText) refreshed = JSON.parse(refreshedText);
+        } catch {}
+        setReservations((refreshed.reservations as typeof reservations) ?? []);
       }
       return;
     }
@@ -86,13 +94,21 @@ export default function GuestListPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
-    const data = await response.json();
-    if (!response.ok) window.alert(data.error ?? "Update rejected");
+    const text = await response.text();
+    let data: Record<string, unknown> = {};
+    try {
+      if (text) data = JSON.parse(text);
+    } catch {}
+    if (!response.ok) window.alert((data.error as string) ?? "Update rejected");
     else {
-      const refreshed = await fetch(
+      const refreshedText = await fetch(
         `/api/reservations?q=${encodeURIComponent(query)}`,
-      ).then((result) => result.json());
-      setReservations(refreshed.reservations ?? []);
+      ).then((result) => result.text()).catch(() => "");
+      let refreshed: { reservations?: unknown[] } = {};
+      try {
+        if (refreshedText) refreshed = JSON.parse(refreshedText);
+      } catch {}
+      setReservations((refreshed.reservations as typeof reservations) ?? []);
     }
   }
 
@@ -102,8 +118,13 @@ export default function GuestListPage() {
       fetch(`/api/reservations?q=${encodeURIComponent(query)}`, {
         signal: controller.signal,
       })
-        .then((response) => response.json())
+        .then(async (response) => {
+          if (!response.ok) return { reservations: [] };
+          const text = await response.text();
+          return text ? JSON.parse(text) : { reservations: [] };
+        })
         .then((data) => setReservations(data.reservations ?? []))
+        .catch(() => {})
         .finally(() => setLoading(false));
     }, query ? 180 : 0);
     return () => {

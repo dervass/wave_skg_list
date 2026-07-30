@@ -93,7 +93,9 @@ export function useAppSession() {
             return null;
           }
           if (!response.ok) throw new Error("Unable to load session");
-          const data = await response.json();
+          const text = await response.text();
+          const data = text ? JSON.parse(text) : null;
+          if (!data) throw new Error("Empty session response");
           cachedSession = data;
           writeLocalCache(data);
           return data;
