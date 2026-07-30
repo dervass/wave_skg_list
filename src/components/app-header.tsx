@@ -36,7 +36,7 @@ export function AppHeader({
         ) : (
           <Link
             href="/app"
-            className="grid size-11 place-items-center rounded-full bg-[var(--panel)]"
+            className="grid size-11 cursor-pointer place-items-center rounded-full bg-[var(--panel)] text-[var(--ink)] hover:bg-[var(--panel-raised)] transition-colors"
             aria-label="Back to home"
           >
             <ArrowLeft aria-hidden="true" size={21} />
@@ -60,7 +60,7 @@ export function AppHeader({
         {profile.role === "admin" ? (
           <Link
             href="/app/admin/accounts"
-            className="grid size-11 place-items-center text-[var(--muted)]"
+            className="grid size-11 cursor-pointer place-items-center rounded-full text-[var(--muted)] hover:bg-[var(--panel)] hover:text-[var(--ink)] transition-colors"
             aria-label="Manage staff accounts"
           >
             <Settings aria-hidden="true" size={19} />
@@ -68,8 +68,9 @@ export function AppHeader({
         ) : null}
         <button
           onClick={logout}
-          className="grid size-11 place-items-center text-[var(--muted)]"
+          className="grid size-11 cursor-pointer place-items-center rounded-full text-[var(--muted)] hover:bg-[var(--panel)] hover:text-[var(--ink)] transition-colors"
           aria-label="Sign out"
+          title="Leave / Sign out"
         >
           <LogOut aria-hidden="true" size={19} />
         </button>
